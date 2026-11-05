@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Book a time with Carlo</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Pick a time for free Cutco sharpening, a visit, or a quick call with Carlo Cipollina.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #FBFAF7; --ink: #1F2A33; --ink-2: #5A6670; --mist: #E7E4DC; --walnut: #5B3A21; --walnut-2: #7A5234;
+    --steel: #2E6F8E; --steel-wash: #E6F0F5; --ok: #2F6B3A; --warn: #8A4B12; --on-walnut: #FFFFFF;
+    --display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+    --body: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --r: 10px;
+  }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { color-scheme: dark; --paper: #15191D; --ink: #ECE9E1; --ink-2: #A9B1B8; --mist: #2A3138; --walnut: #B98A62; --walnut-2: #D1A57E; --steel: #7FB3CC; --steel-wash: #1E2A33; --ok: #8CCB97; --warn: #E0A463; --on-walnut: #15191D; } }
+  :root[data-theme="dark"] { color-scheme: dark; --paper: #15191D; --ink: #ECE9E1; --ink-2: #A9B1B8; --mist: #2A3138; --walnut: #B98A62; --walnut-2: #D1A57E; --steel: #7FB3CC; --steel-wash: #1E2A33; --ok: #8CCB97; --warn: #E0A463; --on-walnut: #15191D; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--body); font-size: 17px; line-height: 1.5; -webkit-text-size-adjust: 100%; }
+  main { max-width: 520px; margin: 0 auto; padding-block: 20px 56px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+  header .who { font-family: var(--display); font-weight: 700; font-size: 18px; letter-spacing: -0.01em; }
+  header .phone a { color: var(--ink-2); text-decoration: none; font-size: 15px; }
+  h1 { font-family: var(--display); font-weight: 700; font-size: clamp(28px, 7vw, 36px); line-height: 1.08; letter-spacing: -0.02em; margin: 6px 0 10px; }
+  h2 { font-family: var(--display); font-weight: 700; font-size: 24px; line-height: 1.15; letter-spacing: -0.015em; margin: 4px 0 8px; }
+  p { margin: 0 0 12px; max-width: 60ch; }
+  .muted { color: var(--ink-2); }
+  .small { font-size: 15px; }
+
+  /* the receipt: every decision so far, tappable to go back */
+  .receipt { border-left: 3px solid var(--walnut); padding-left: 12px; margin: 0 0 20px; display: flex; flex-direction: column; gap: 2px; }
+  .receipt button { all: unset; cursor: pointer; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--mist); font-size: 15px; }
+  .receipt button:last-child { border-bottom: 0; }
+  .receipt button span.k { color: var(--ink-2); }
+  .receipt button span.v { font-weight: 600; text-align: right; }
+  .receipt button span.c { color: var(--steel); font-size: 14px; white-space: nowrap; }
+  .receipt button:focus-visible { outline: 3px solid var(--steel); outline-offset: 2px; border-radius: 4px; }
+
+  /* choices: the two big options */
+  .choices { display: grid; gap: 10px; margin: 14px 0; }
+  .choice { all: unset; display: block; cursor: pointer; border: 1.5px solid var(--mist); border-radius: var(--r); padding: 14px 16px; background: transparent; }
+  .choice:hover { border-color: var(--ink-2); }
+  .choice:focus-visible { outline: 3px solid var(--steel); outline-offset: 2px; }
+  .choice .t { font-family: var(--display); font-weight: 700; font-size: 20px; line-height: 1.2; letter-spacing: -0.01em; }
+  .choice .d { color: var(--ink-2); font-size: 15px; margin-top: 4px; }
+  .choice .hint { color: var(--ok); font-size: 14px; margin-top: 6px; font-weight: 600; }
+  .choice.sel { border-color: var(--walnut); box-shadow: inset 0 0 0 1px var(--walnut); }
+  .grid2 { grid-template-columns: 1fr 1fr; }
+  .grid2 .choice .t { font-size: 18px; }
+  .slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; margin: 14px 0; }
+  .slots .choice { padding: 12px 10px; text-align: center; }
+  .slots .choice .t { font-size: 17px; }
+
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 10px 0 0; }
+  .btn { display: inline-block; font-family: var(--display); font-weight: 700; font-size: 17px; letter-spacing: -0.005em; line-height: 1.2; text-decoration: none; border: 1.5px solid var(--walnut); border-radius: var(--r); padding: 12px 18px; cursor: pointer; background: var(--walnut); color: var(--on-walnut); }
+  .btn:hover { background: var(--walnut-2); border-color: var(--walnut-2); }
+  .btn:focus-visible { outline: 3px solid var(--steel); outline-offset: 2px; }
+  .btn.ghost { background: transparent; border-color: var(--ink-2); color: var(--ink); }
+  .btn.ghost:hover { background: var(--steel-wash); border-color: var(--ink); }
+  .btn.quiet { background: transparent; border-color: transparent; color: var(--steel); padding-left: 8px; padding-right: 8px; text-decoration: underline; text-underline-offset: 3px; }
+  .btn.quiet:hover { background: var(--steel-wash); }
+  .btn[disabled] { opacity: .5; cursor: default; }
+
+  label { display: block; font-size: 15px; color: var(--ink-2); margin: 12px 0 4px; }
+  input, select, textarea { width: 100%; font: inherit; color: var(--ink); background: transparent; border: 1.5px solid var(--mist); border-radius: 8px; padding: 11px 12px; }
+  input:focus, select:focus, textarea:focus { outline: 3px solid var(--steel); outline-offset: 1px; border-color: var(--steel); }
+  .note { background: var(--steel-wash); border-radius: var(--r); padding: 12px 14px; margin: 14px 0; font-size: 15px; }
+  .hold { font-size: 14px; color: var(--ink-2); margin-top: 6px; }
+  .err { color: var(--warn); font-weight: 600; margin: 10px 0; }
+  .ok { color: var(--ok); font-weight: 600; }
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--mist); border-top-color: var(--steel); border-radius: 50%; animation: spin .9s linear infinite; vertical-align: -2px; margin-right: 8px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
+  .loading { padding: 20px 0; color: var(--ink-2); }
+  .steps { padding-left: 22px; margin: 12px 0 6px; display: grid; gap: 10px; }
+  .steps li { padding-left: 4px; }
+  .steps li::marker { font-family: var(--display); font-weight: 700; color: var(--walnut); }
+  .backrow { margin-top: 18px; padding-top: 10px; border-top: 1px solid var(--mist); }
+  .checks { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; margin: 6px 0 4px; }
+  .checks label { display: flex; align-items: flex-start; gap: 8px; margin: 0; color: var(--ink); font-size: 15px; cursor: pointer; }
+  .checks input { width: 18px; height: 18px; margin: 2px 0 0; padding: 0; flex: none; accent-color: var(--walnut); }
+  footer { margin-top: 40px; color: var(--ink-2); font-size: 14px; }
+  footer a { color: var(--ink); font-weight: 600; text-decoration: none; white-space: nowrap; }
+  .demo { position: fixed; top: 0; right: 0; background: var(--warn); color: #fff; font-size: 12px; padding: 4px 10px; border-bottom-left-radius: 8px; font-weight: 700; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="who">Cutco Carlo</div>
+    <div class="phone"><a id="phone" href="tel:14152612099">415-261-2099</a></div>
+  </header>
+  <div id="receipt" class="receipt" hidden></div>
+  <section id="screen" aria-live="polite"></section>
+  <footer>Carlo Cipollina, independent Cutco representative since 2008. Questions? Call or text me: <a id="footPhone" href="tel:14152612099">415-261-2099</a></footer>
+</main>
+<script>
+/* ════════════════════════════════════════════════════════════════
+   SETTINGS — the two lines Carlo pastes after deploying the engine
+   ════════════════════════════════════════════════════════════════ */
+var BRIDGE = 'https://script.google.com/macros/s/AKfycbyrzHUL0kF2JLqolSt1tTRHTSlpnFAwTgQQgQp1Qq4PAzdig3cAabB0L53rSa9tRVnW0w/exec';   // Booking Engine web app URL (ends in /exec)
+var PUBLIC_KEY = 'fDcwfBdSzY6sY5Tj2DGk3dL8G9y5';
+
+/* demo data: generated from the engine on fake calendars, so the demo
+   behaves the way the real thing will. Opens with ?demo=1 */
+var DEMO = null;
+
+var qs = {}; location.search.replace(/^\?/, '').split('&').forEach(function (p) { if (!p) return; var kv = p.split('='); qs[decodeURIComponent(kv[0])] = decodeURIComponent((kv[1] || '').replace(/\+/g, ' ')); });
+var demo = (!!qs.demo || BRIDGE.indexOf('PASTE') === 0) && !!DEMO;
+var campaign = qs.c || qs.campaign || '';
+var S = { cfg: null, intent: null, menu: null, type: null, zip: '', guests: 0, days: [], dayPage: 0, day: null, winPage: 0, win: null, hold: null, far: false, choices: [], eventFilter: qs.ev || '' };
+
+var $screen = document.getElementById('screen'), $receipt = document.getElementById('receipt');
+/* The three doors. Written to presuppose the good outcome (the gift lands,
+   the set gets sharp, the order fits) without ever asking for the sale. */
+var INTENTS = [
+  { id: 'gifts',   t: 'Business Gifts',   d: 'Engraved Cutco for the clients, team and partners you want to keep close. Picture their reaction, then let\'s plan it.' },
+  { id: 'shop',    t: 'Shop the Line',     d: 'Build the set, upgrade a piece, or catch the sale. See what you\'ll be reaching for every day.' },
+  { id: 'sharpen', t: 'Sharpening',        d: 'Every Cutco piece you own, back to factory sharp. While they\'re out on the counter, see what\'s new.' }
+];
+var GROUP_H = { gifts: 'How would you like to see the gifts?', shop: 'How would you like to shop?', sharpen: 'Which works best for you?' };
+var GROUP_SUB = { gifts: 'In person is best; you\'ll hold the pieces your people will open.', shop: 'Hands on the knives beats any photo.', sharpen: 'All of these bring your Cutco back to day-one sharp.' };
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+function el(html) { var d = document.createElement('div'); d.innerHTML = html.trim(); return d.firstChild; }
+function hm12(min) { var h = Math.floor(min / 60), m = min % 60, ap = h >= 12 ? 'PM' : 'AM', hh = h % 12 || 12; return hh + ':' + (m < 10 ? '0' : '') + m + ' ' + ap; }
+function digits(s) { return String(s || '').replace(/\D/g, '').replace(/^1(\d{10})$/, '$1'); }
+
+/* ── talking to the engine ───────────────────────────────────── */
+function api(fn, params) {
+  if (demo) return demoApi(fn, params);
+  var u = BRIDGE + '?pk=' + encodeURIComponent(PUBLIC_KEY) + '&fn=' + fn;
+  for (var k in params) if (params[k] != null && params[k] !== '') u += '&' + k + '=' + encodeURIComponent(params[k]);
+  return fetch(u, { method: 'GET', cache: 'no-store' }).then(function (r) { return r.json(); });
+}
+function post(op, body) {
+  if (demo) return demoPost(op, body);
+  body.op = op; body.pk = PUBLIC_KEY;
+  /* text/plain keeps it a "simple" request: Apps Script does not answer preflights */
+  return fetch(BRIDGE, { method: 'POST', body: JSON.stringify(body), headers: { 'Content-Type': 'text/plain;charset=utf-8' } }).then(function (r) { return r.json(); });
+}
+/* demo: canned answers that mimic the engine */
+var demoHolds = {};
+function demoApi(fn, p) {
+  return new Promise(function (res) { setTimeout(function () {
+    if (fn === 'config') return res(DEMO.config);
+    if (fn === 'menu') { var mk = p.group + ':' + (DEMO.menu[p.group + ':' + p.zip] ? p.zip : 'any'); return res(JSON.parse(JSON.stringify(DEMO.menu[mk] || { ok: true, types: [] }))); }
+    if (fn === 'days') { var key = p.type + (p.type === 'service' || p.type === 'demo' || p.type === 'party' ? ':' + (DEMO.days[p.type + ':' + p.zip] ? p.zip : 'any') : ''); var d = DEMO.days[key] || DEMO.days[p.type + ':any'] || { ok: true, days: [], far: false, type: {} }; return res(JSON.parse(JSON.stringify(d))); }
+    res({ ok: false, error: 'demo: unknown ' + fn });
+  }, 500); });
+}
+function demoPost(op, b) {
+  return new Promise(function (res) { setTimeout(function () {
+    if (op === 'hold') { var id = 'bk-demo-' + Math.random().toString(36).slice(2, 7); demoHolds[id] = b; return res({ ok: true, bookingId: id, holdUntil: new Date(Date.now() + 10 * 60000).toISOString(), far: S.far, label: S.day.label + ', ' + S.win.label }); }
+    if (op === 'book') { if (S.far) return res({ ok: true, requested: true, confirmWithinDays: 3 }); return res({ ok: true, confirmed: true, bookingId: b.bookingId, when: S.day.label + ', ' + S.win.label, where: S.type.mode === 'home' ? b.address : S.type.mode === 'venue' ? (S.day.address || '') + (S.day.venue ? ', hosted at ' + S.day.venue : '') : S.type.mode === 'desk' ? 'Zoom' : 'By phone; I will call you', zoom: S.type.mode === 'desk' ? 'https://us06web.zoom.us/j/8694594357' : '', directions: S.type.mode === 'venue' && S.day.address ? 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(S.day.address) : '', findMe: S.day.findMe || '', loom: S.type.loom || '' }); }
+    if (op === 'request') return res({ ok: true, requestId: 'rq-demo' });
+    if (op === 'cancel') return res({ ok: true });
+    res({ ok: false, error: 'demo' });
+  }, 600); });
+}
+
+/* ── the receipt ─────────────────────────────────────────────── */
+function receipt(items) {
+  $receipt.innerHTML = '';
+  if (!items.length) { $receipt.hidden = true; return; }
+  $receipt.hidden = false;
+  items.forEach(function (it) {
+    var b = el('<button type="button"><span class="k">' + esc(it.k) + '</span><span class="v">' + esc(it.v) + '</span>' + (it.back ? '<span class="c">change</span>' : '') + '</button>');
+    if (it.back) b.addEventListener('click', function () { go(it.back); }); else b.disabled = true;
+    $receipt.appendChild(b);
+  });
+}
+/* every screen is a function; go() remembers the one before it so Back can re-render it */
+var stack = [];
+function go(fn) { if (S.current && S.current !== fn) stack.push(S.current); S.current = fn; fn(); }
+function back() { var prev = stack.pop(); if (!prev) return typeScreen(); S.current = prev; prev(); }
+function show(html, opts) {
+  $screen.innerHTML = '';
+  $screen.appendChild(el('<div>' + html + '</div>'));
+  if (!(opts && opts.noBack) && stack.length) {
+    var b = el('<div class="backrow"><button type="button" class="btn quiet" id="backBtn">Back</button></div>');
+    $screen.appendChild(b); document.getElementById('backBtn').addEventListener('click', back);
+  }
+  window.scrollTo({ top: 0 });
+}
+function loading(msg) { show('<div class="loading"><span class="spinner"></span>' + esc(msg) + '</div>'); }
+function fail(msg, retry) { show('<p class="err">' + esc(msg) + '</p><div class="row">' + (retry ? '<button class="btn ghost" id="retry">Try again</button>' : '') + '<a class="btn quiet" href="sms:14152612099">Text Carlo instead</a></div>'); if (retry) document.getElementById('retry').addEventListener('click', retry); }
+
+/* ── screens ─────────────────────────────────────────────────── */
+function start() {
+  if (qs.cancel) return cancelScreen();
+  loading('One moment');
+  api('config', {}).then(function (cfg) {
+    if (!cfg.ok) return fail('The booking page could not load. ' + (cfg.error || ''), start);
+    S.cfg = cfg;
+    if (cfg.phone) { ['phone', 'footPhone'].forEach(function (id) { var tel = document.getElementById(id); if (tel) { tel.textContent = cfg.phone; tel.href = 'tel:1' + digits(cfg.phone); } }); }
+    var pre = qs.type || (S.eventFilter ? 'sse' : '');
+    if (pre) { var t = cfg.types.filter(function (x) { return x.id === pre; })[0]; if (t) { S.intent = INTENTS.filter(function (i) { return i.id === t.group; })[0] || null; S.current = typeScreen; return pickType(t); } }
+    var preI = qs.i && INTENTS.filter(function (i) { return i.id === qs.i; })[0];
+    if (preI) { S.current = typeScreen; return pickIntent(preI); }
+    go(typeScreen);
+  }).catch(function () { fail('The booking page could not reach the calendar. Check your connection and try again.', start); });
+}
+function typeScreen() {
+  S.type = null; S.intent = null; S.menu = null; S.day = null; S.win = null; S.choices = []; stack = []; S.current = typeScreen;
+  receipt([]);
+  var html = '<h1>Schedule your time with Cutco Carlo</h1><p class="muted">Choose what you\'re here for, add your zip, pick a time. Three short steps.</p><div class="choices">' + INTENTS.map(function (i) {
+    return '<button class="choice" data-intent="' + i.id + '"><div class="t">' + esc(i.t) + '</div><div class="d">' + esc(i.d) + '</div></button>';
+  }).join('') + '</div>';
+  show(html, { noBack: true });
+  Array.prototype.forEach.call(document.querySelectorAll('[data-intent]'), function (b) { b.addEventListener('click', function () { pickIntent(INTENTS.filter(function (i) { return i.id === b.getAttribute('data-intent'); })[0]); }); });
+}
+function pickIntent(i) {
+  S.intent = i; S.type = null; S.menu = null; S.day = null; S.win = null; S.choices = []; S.skippedMenu = false; S.daysTried = 0; S.passed = {};
+  go(zipScreen);
+}
+function intentReceipt() { return S.intent ? [{ k: 'Here for', v: S.intent.t, back: typeScreen }] : []; }
+/* zip first, then the menu of what is really open for that zip */
+function zipScreen() {
+  S.current = zipScreen;
+  receipt(intentReceipt());
+  var why = S.intent.id === 'gifts' ? 'Let\'s start with where you\'re located, and then I\'ll show you which days I\'m near your office.' : S.intent.id === 'shop' ? 'Let\'s start with where you\'re located, and then I\'ll show you which days I\'m in your area.' : 'Let\'s start with where you\'re located, and then I\'ll show you which days I\'m in your area and the event closest to you.';
+  show('<h1>Where are you?</h1><p class="muted">' + why + '</p><label for="zip">Zip code</label><input id="zip" inputmode="numeric" pattern="[0-9]*" maxlength="5" autocomplete="postal-code" value="' + esc(S.zip) + '"><div class="row"><button class="btn" id="go">See my options</button></div><p class="err" id="zipErr" hidden>Five digits, please.</p>');
+  var zipEl = document.getElementById('zip'); zipEl.focus();
+  function submitZip() { var z = zipEl.value.trim(); if (!/^\d{5}$/.test(z)) { document.getElementById('zipErr').hidden = false; return; } S.zip = z; go(loadMenu); }
+  document.getElementById('go').addEventListener('click', submitZip);
+  zipEl.addEventListener('keydown', function (e) { if (e.key === 'Enter') submitZip(); });
+}
+function loadMenu() {
+  receipt(intentReceipt().concat([{ k: 'Zip', v: S.zip, back: zipScreen }]));
+  loading('Checking my calendar around ' + S.zip);
+  api('menu', { group: S.intent.id, zip: S.zip }).then(function (res) {
+    if (!res.ok) return fail(res.error === 'zip not found' ? 'I could not find that zip. Check it and try again.' : 'Could not read the calendar: ' + (res.error || ''), res.error === 'zip not found' ? zipScreen : loadMenu);
+    S.menu = res; S.current = zipScreen; menuScreen();
+  }).catch(function () { fail('Could not reach the calendar right now.', loadMenu); });
+}
+function perStep() { if (S.type && (S.type.mode === 'desk' || S.type.mode === 'anywhere')) return S.cfg.deskOptionsPerStep || 4; return S.intent && S.intent.id === 'gifts' ? (S.cfg.giftsOptionsPerStep || 4) : (S.cfg.optionsPerStep || 2); }
+/* times per page: an empty field day shows Carlo's preferred three */
+function perTimes() { if (S.type && S.type.mode === 'home' && S.day && S.day.tier === 3) return S.cfg.openDayPerPage || 3; return perStep(); }
+function typeById(id) { return S.cfg.types.filter(function (t) { return t.id === id; })[0]; }
+function menuScreen(showFallback) {
+  S.current = menuScreen;
+  receipt(intentReceipt().concat([{ k: 'Zip', v: S.zip, back: zipScreen }]));
+  var items = S.menu.types.filter(function (m) { return showFallback ? (m.hidden || m.role === 'always') && !m.info : !m.hidden; });
+  if (!items.length) return noneScreen();
+  if (items.length === 1 && !items[0].info && !showFallback) { S.skippedMenu = true; S.menuItem = items[0]; S.current = zipScreen; return pickType(typeById(items[0].type)); }
+  S.skippedMenu = false;
+  var h = showFallback ? 'Let\'s get the conversation started' : (GROUP_H[S.intent.id] || 'Which works best?');
+  var sub = showFallback ? 'None of the in-person days lined up, so here is the quickest way to get going.' : (GROUP_SUB[S.intent.id] || '');
+  show('<h1>' + esc(h) + '</h1>' + (sub ? '<p class="muted">' + esc(sub) + '</p>' : '') + '<div class="choices">' + items.map(function (m) {
+    var t = typeById(m.type); if (!t) return '';
+    var hint = m.info ? '' : m.far && t.mode === 'home' ? 'You\'re a drive for me; pick a few windows and I\'ll confirm within ' + (m.confirmWithinDays || 3) + ' days' : '';
+    return '<button class="choice" data-m="' + esc(m.type) + '"><div class="t">' + esc(t.name) + '</div>' + (t.blurb ? '<div class="d">' + esc(t.blurb) + '</div>' : '') + (hint ? '<div class="hint">' + esc(hint) + '</div>' : '') + '</button>';
+  }).join('') + '</div>');
+  Array.prototype.forEach.call(document.querySelectorAll('[data-m]'), function (b) { b.addEventListener('click', function () {
+    var m = S.menu.types.filter(function (x) { return x.type === b.getAttribute('data-m'); })[0];
+    S.menuItem = m; pickType(typeById(m.type));
+  }); });
+}
+function pickType(t) {
+  S.type = t; S.day = null; S.win = null; S.choices = []; S.dayPage = 0; S.guests = 0;
+  if (t.mode === 'info' || t.mailIn) return go(function () { infoScreen(t); });
+  if (t.askGuests) return go(guestsScreen);
+  useMenuDays();
+}
+function useMenuDays() {
+  var m = S.menuItem && S.menuItem.type === S.type.id ? S.menuItem : null;
+  if (m && m.days && !S.guests) { S.days = m.days; S.far = !!m.far; S.confirmWithinDays = m.confirmWithinDays || 3; S.dayPage = 0; if (S.eventFilter) { var f = S.days.filter(function (d) { return d.eventId === S.eventFilter; }); if (f.length) S.days = f; } return go(daysScreen); }
+  go(loadDays);
+}
+function guestsScreen() {
+  S.current = guestsScreen;
+  receipt(baseReceipt().slice(0, -1));
+  var isParty = S.type.id === 'party';
+  show('<h1>' + (isParty ? 'How many are coming?' : 'Make it a party?') + '</h1><p class="muted">' + (isParty ? 'The more sets on the counter, the better the afternoon. I\'ll size the time to fit.' : 'Invite friends or neighbours and everyone\'s Cutco gets sharpened in one visit. I\'ll size the time to fit.') + '</p>' +
+    '<label for="guests">How many do you think will come?</label><select id="guests"><option value="0">' + (isParty ? 'Not sure yet' : 'Just us') + '</option><option value="2">One or two</option><option value="4">Three to five</option><option value="6">Six or more</option></select>' +
+    '<p class="muted small" style="margin-top:8px">' + esc(S.cfg.liabilityLine || '') + '</p><div class="row"><button class="btn" id="next">Show me days</button></div>');
+  document.getElementById('guests').value = String(S.guests || 0);
+  document.getElementById('next').addEventListener('click', function () { S.guests = parseInt(document.getElementById('guests').value, 10) || 0; useMenuDays(); });
+}
+function infoScreen(t) {
+  receipt(intentReceipt().concat([{ k: 'Type', v: t.name, back: menuScreen }]));
+  var steps = t.steps && t.steps.length ? t.steps : MAILIN_STEPS;
+  show('<h1>' + esc(t.name) + '</h1><p>' + esc(t.blurb) + '</p>' +
+    '<ol class="steps">' + steps.map(function (st) { return '<li><strong>' + esc(st.h) + '</strong> ' + st.html + '</li>'; }).join('') + '</ol>' +
+    (t.link ? '<div class="row"><a class="btn" href="' + esc(t.link) + '" target="_blank" rel="noopener">' + esc(t.linkText || 'Start the service request') + '</a></div>' : '') +
+    '<p class="muted small" style="margin-top:14px">If you have any questions, call or text me any time.</p>' +
+    '<div class="row"><a class="btn quiet" href="sms:1' + digits(S.cfg.phone) + '">Text Carlo</a></div>');
+}
+/* Cutco's own mail-in steps (cutco.com/customer/return-repair and cutco.com/sharpening, read Nov 2026).
+   Sharpening is free; the return shipping fee is by count. Editable here or per type on the Types tab. */
+var MAILIN_STEPS = [
+  { h: 'Start the request online.', html: 'Open the service request below and enter each item\'s number (on the side of the blade, near the handle) and handle colour. Print the confirmation it gives you.' },
+  { h: 'Wrap each knife.', html: 'Clean, then cover every blade completely: cereal-box cardboard or the original sheath, plus a layer of newspaper or tissue. Never tape the blades or handles, and never ship the block or tray.' },
+  { h: 'Box them up.', html: 'A sturdy corrugated box, not an envelope. Fill the gaps with paper so nothing moves. Put the printed confirmation in the box.' },
+  { h: 'Ship it.', html: 'USPS, UPS or FedEx, your choice, to <strong>Cutco Cutlery, Return/Repair, 322 Houghton Ave, Olean NY 14760</strong>. Keep the tracking number.' },
+  { h: 'Return shipping is collected on the service request page.', html: 'Sharpening is free. Return shipping: 1 to 5 items $11, 6 to 10 $13, 11 to 25 $15, 26 or more $18. Expect them back a few weeks after Cutco receives them.' }
+];
+function baseReceipt() {
+  var r = intentReceipt();
+  r.push({ k: 'Zip', v: S.zip, back: zipScreen });
+  r.push({ k: 'Type', v: S.type.name + (S.guests ? ', plus ' + S.guests + ' guests' : ''), back: S.skippedMenu ? zipScreen : menuScreen });
+  return r;
+}
+function loadDays() {
+  receipt(baseReceipt());
+  loading(S.type.mode === 'home' ? 'Sizing the visit and checking the drive to ' + S.zip : 'Checking my calendar');
+  api('days', { type: S.type.id, zip: S.zip, guests: S.guests }).then(function (res) {
+    if (!res.ok) return fail(res.error === 'zip not found' ? 'I could not find that zip. Check it and try again.' : 'Could not read the calendar: ' + (res.error || ''), res.error === 'zip not found' ? zipScreen : loadDays);
+    S.days = res.days || []; S.far = !!res.far; S.confirmWithinDays = res.confirmWithinDays || 3; S.dayPage = 0;
+    if (S.eventFilter) { var f = S.days.filter(function (d) { return d.eventId === S.eventFilter; }); if (f.length) S.days = f; }
+    if (res.type && res.type.minutes) S.type.totalMinutes = res.type.minutes;
+    S.current = daysScreen; daysScreen();   // Back from the days returns to the zip, not to this spinner
+  }).catch(function () { fail('Could not reach the calendar right now.', loadDays); });
+}
+function daysScreen() {
+  S.current = daysScreen; receipt(baseReceipt());
+  var per = perStep();
+  if (!S.days.length) return noneScreen();
+  var page = S.days.slice(S.dayPage * per, S.dayPage * per + per);
+  if (!page.length) return noneScreen(true);
+  var intro = S.far ? '<div class="note">You are a bit of a drive for me, so I group visits by area. Pick up to three windows that work for you and I will confirm the best one within ' + S.confirmWithinDays + ' days.</div>' : '';
+  var h = S.type.mode === 'venue' ? 'Which day suits you?' : S.dayPage === 0 ? (per > 2 ? 'Which day works best for you?' : 'Which day works better for you?') : 'How about one of these?';
+  show('<h1>' + esc(h) + '</h1>' + intro + '<div class="choices">' + page.map(function (d, i) {
+    return '<button class="choice" data-i="' + i + '"><div class="t">' + esc(d.label) + '</div>' + (d.mode === 'event' ? '<div class="d">' + esc(d.city || d.venue || '') + (d.miles == null ? '' : d.miles < 2 ? ', right near you' : ', about ' + d.miles + ' miles from you') + '</div>' : '') + (d.hint && d.mode !== 'event' ? '<div class="hint">' + esc(d.hint) + '</div>' : '') + '</button>';
+  }).join('') + '</div><div class="row">' + (S.days.length > (S.dayPage + 1) * per ? '<button class="btn ghost" id="more">' + (per > 2 ? 'None of these work, show more' : 'Neither works, show two more') + '</button>' : '<button class="btn ghost" id="more">' + (per > 2 ? 'None of these work' : 'Neither of these works') + '</button>') + '</div>');
+  Array.prototype.forEach.call(document.querySelectorAll('[data-i]'), function (b) { b.addEventListener('click', function () { S.day = page[parseInt(b.getAttribute('data-i'), 10)]; S.winPage = 0; go(windowsScreen); }); });
+  document.getElementById('more').addEventListener('click', function () { if (S.days.length > (S.dayPage + 1) * per) { S.dayPage++; daysScreen(); } else exhausted(); });
+}
+/* the customer passed over every time on this day */
+function passDay() {
+  S.daysTried = (S.daysTried || 0) + 1;
+  S.passed = S.passed || {}; S.passed[S.day.date] = 1;
+  if (S.daysTried >= (S.cfg.daysBeforeCallback || 2)) return go(function () { noneScreen('callme'); });
+  var per = perStep(), left = S.days.filter(function (d) { return !S.passed[d.date]; });
+  if (!left.length) return exhausted();
+  S.days = left; S.dayPage = 0; go(daysScreen);
+}
+function exhausted() {
+  var fb = S.menu && S.menu.types.filter(function (m) { return m.hidden && m.days && m.days.length; });
+  if (fb && fb.length) return go(function () { menuScreen(true); });
+  go(function () { noneScreen(true); });
+}
+function windowsScreen() {
+  S.current = windowsScreen;
+  var r = baseReceipt(); r.push({ k: 'Day', v: S.day.label, back: daysScreen }); receipt(r);
+  var per = perTimes(), all = S.day.windows || [];
+  var isEvent = S.type.mode === 'venue';
+  var page = isEvent ? all : all.slice(S.winPage * per, S.winPage * per + per).sort(function (a, b) { return a.s - b.s; });
+  if (!page.length) { S.winPage = 0; return daysScreen(); }
+  var h = isEvent ? 'Pick a slot' : S.winPage === 0 ? (per > 2 ? 'Which time works best?' : 'Which time?') : 'Or one of these?';
+  var sub = S.type.mode === 'home' ? '<p class="muted small">I usually arrive within 20 minutes either side of the time, so the window is the promise and the time is the plan.</p>' : S.type.mode === 'venue' ? '<p class="muted small">' + esc(S.day.address || '') + (S.day.venue ? ', hosted at ' + esc(S.day.venue) : '') + (S.day.findMe ? '. ' + esc(S.day.findMe) : '') + '</p>' : '';
+  show('<h1>' + esc(h) + '</h1>' + sub + '<div class="' + (isEvent ? 'slots' : 'choices') + '">' + page.map(function (w, i) {
+    return '<button class="choice" data-w="' + i + '"><div class="t">' + esc(isEvent ? hm12(w.s) : w.label.replace(/^around /, '').replace(/ \(.*$/, '')) + '</div>' + (!isEvent && S.type.mode === 'home' ? '<div class="d">' + esc(w.label.replace(/^.*\((.*)\)$/, '$1')) + '</div>' : '') + '</button>';
+  }).join('') + '</div><div class="row">' + (!isEvent && all.length > (S.winPage + 1) * per ? '<button class="btn ghost" id="more">' + (per > 2 ? 'None of these work, show more' : 'Neither works, show two more') + '</button>' : '<button class="btn ghost" id="otherday">' + (S.daysTried + 1 >= (S.cfg.daysBeforeCallback || 2) ? 'None of these work' : 'None of these work, try another day') + '</button>') + '</div>');
+  Array.prototype.forEach.call(document.querySelectorAll('[data-w]'), function (b) { b.addEventListener('click', function () { S.win = page[parseInt(b.getAttribute('data-w'), 10)]; S.far ? go(farChoice) : go(holdAndForm); }); });
+  var more = document.getElementById('more'); if (more) more.addEventListener('click', function () { S.winPage++; windowsScreen(); });
+  var other = document.getElementById('otherday'); if (other) other.addEventListener('click', passDay);
+}
+/* far away: collect up to three windows, then the form */
+function farChoice() {
+  S.current = farChoice;
+  var dup = S.choices.some(function (c) { return c.date === S.day.date && c.s === S.win.s; });
+  if (!dup) S.choices.push({ date: S.day.date, s: S.win.s, label: S.day.label + ', ' + S.win.label });
+  var r = baseReceipt(); S.choices.forEach(function (c, i) { r.push({ k: 'Option ' + 'ABC'.charAt(i), v: c.label, back: function () { S.choices.splice(i, 1); S.choices.length ? farChoice() : daysScreen(); } }); }); receipt(r);
+  show('<h1>' + (S.choices.length < 3 ? 'Add another option?' : 'Three options, thank you') + '</h1><p class="muted">More options make it likelier one lands on a day I am already up your way.</p><div class="row">' + (S.choices.length < 3 ? '<button class="btn ghost" id="add">Add another day or time</button>' : '') + '<button class="btn" id="cont">Continue</button></div>');
+  var add = document.getElementById('add'); if (add) add.addEventListener('click', function () { S.dayPage = 0; go(daysScreen); });
+  document.getElementById('cont').addEventListener('click', function () { S.day = S.days.filter(function (d) { return d.date === S.choices[0].date; })[0] || S.day; S.win = { s: S.choices[0].s, label: S.choices[0].label }; go(holdAndForm); });
+}
+function holdAndForm() {
+  S.current = holdAndForm;
+  var r = baseReceipt(); if (!S.far) r.push({ k: 'When', v: S.day.label + ', ' + S.win.label.replace(/^around /, ''), back: windowsScreen }); else S.choices.forEach(function (c, i) { r.push({ k: 'Option ' + 'ABC'.charAt(i), v: c.label }); }); receipt(r);
+  loading(S.far ? 'Saving your options' : 'Holding that time for you');
+  post('hold', { type: S.type.id, zip: S.zip, date: S.day.date, start: S.win.s, guests: S.guests, campaign: campaign }).then(function (res) {
+    if (!res.ok) {
+      if (res.taken) { S.day.windows = (res.alternatives || []).concat([]); S.winPage = 0; show('<h1>That one just went</h1><p>Someone grabbed it a moment ago. ' + (S.day.windows.length ? 'Here are the nearest that still work.' : 'Try another day.') + '</p>'); return setTimeout(function () { S.current = null; go(S.day.windows.length ? windowsScreen : daysScreen); }, 1200); }
+      return fail(res.error || 'Could not hold that time.', windowsScreen);
+    }
+    S.hold = res; S.current = formScreen; formScreen();   // Back from the form returns to the times, never re-holds
+  }).catch(function () { fail('Could not reach the calendar right now.', holdAndForm); });
+}
+function formScreen() {
+  S.current = formScreen;
+  var t = S.type, qsHtml = '';
+  (t.questions || []).forEach(function (q) {
+    var id = 'q_' + q.id;
+    if (q.type === 'multi') qsHtml += '<label>' + esc(q.q) + '</label><div class="checks" data-multi="' + esc(q.id) + '">' + q.opts.map(function (o, i) { return '<label for="' + id + '_' + i + '"><input type="checkbox" id="' + id + '_' + i + '" value="' + esc(o) + '"><span>' + esc(o) + '</span></label>'; }).join('') + '</div>';
+    else if (q.opts) qsHtml += '<label for="' + id + '">' + esc(q.q) + '</label><select id="' + id + '" data-q="' + esc(q.id) + '"><option value="">Choose</option>' + q.opts.map(function (o) { return '<option>' + esc(o) + '</option>'; }).join('') + '</select>';
+    else qsHtml += '<label for="' + id + '">' + esc(q.q) + (q.optional ? ' <span class="small">(optional)</span>' : '') + '</label><input id="' + id + '" data-q="' + esc(q.id) + '">';
+  });
+  var addr = t.mode === 'home' ? '<label for="address">Street address</label><input id="address" autocomplete="street-address" placeholder="123 Main St, Pleasanton">' : '';
+  var holdLine = S.far ? '' : '<div class="hold" id="holdLine">Held for you for the next <span id="mins">10</span> minutes.</div>';
+  var presence = t.mode === 'home' && S.cfg.presentLine ? '<div class="note">' + esc(S.cfg.presentLine) + (S.guests && S.cfg.liabilityLine ? ' ' + esc(S.cfg.liabilityLine) : '') + '</div>' : t.mode === 'venue' && S.cfg.liabilityLine ? '<div class="note">' + esc(S.cfg.liabilityLine) + '</div>' : '';
+  show('<h1>' + (S.far ? 'Almost there' : 'Last step, then it\'s yours') + '</h1>' + holdLine +
+    presence + '<label for="name">Your name</label><input id="name" autocomplete="name">' +
+    '<label for="phoneIn">Mobile number</label><input id="phoneIn" type="tel" inputmode="tel" autocomplete="tel">' +
+    '<label for="email">Email, for the confirmation</label><input id="email" type="email" inputmode="email" autocomplete="email">' + addr + qsHtml +
+    '<div class="row"><button class="btn" id="book">' + (S.far ? 'Send my options' : 'Book it') + '</button></div><p class="err" id="formErr" hidden></p>');
+  document.getElementById('name').focus();
+  if (!S.far) { var deadline = new Date(S.hold.holdUntil).getTime(); var tick = setInterval(function () { var m = Math.max(0, Math.ceil((deadline - Date.now()) / 60000)); var el2 = document.getElementById('mins'); if (!el2) return clearInterval(tick); el2.textContent = m; if (m === 0) { clearInterval(tick); document.getElementById('holdLine').textContent = 'The hold ran out. Book it anyway and I will check the time is still free.'; } }, 15000); }
+  document.getElementById('book').addEventListener('click', function () {
+    var name = document.getElementById('name').value.trim(), phone = digits(document.getElementById('phoneIn').value), email = document.getElementById('email').value.trim();
+    var address = t.mode === 'home' ? document.getElementById('address').value.trim() : '';
+    var errEl = document.getElementById('formErr');
+    function err(m) { errEl.textContent = m; errEl.hidden = false; }
+    if (!name) return err('Your name, so I know who I am meeting.');
+    if (phone.length < 10) return err('A 10-digit mobile number, please.');
+    if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return err('That email does not look right.');
+    if (t.mode === 'home' && !address) return err('Your street address, so the drive math is right.');
+    var answers = {};
+    Array.prototype.forEach.call(document.querySelectorAll('[data-q]'), function (q) { if (q.value) answers[q.getAttribute('data-q')] = q.value; });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-multi]'), function (g) { var picked = Array.prototype.map.call(g.querySelectorAll('input:checked'), function (c) { return c.value; }); if (picked.length) answers[g.getAttribute('data-multi')] = picked.join(', '); });
+    var btn = document.getElementById('book'); btn.disabled = true; btn.textContent = 'Booking';
+    post('book', { bookingId: S.hold.bookingId, name: name, phone: phone, email: email, address: address, answers: answers, choices: S.far ? S.choices.map(function (c) { return { date: c.date, s: c.s }; }) : [], campaign: campaign }).then(function (res) {
+      if (!res.ok) {
+        btn.disabled = false; btn.textContent = S.far ? 'Send my options' : 'Book it';
+        if (res.taken) { S.day.windows = res.alternatives || []; S.winPage = 0; show('<h1>Not quite</h1><p>' + esc(res.error) + '</p>'); return setTimeout(function () { S.current = null; go(S.day.windows.length ? windowsScreen : daysScreen); }, 1600); }
+        if (res.expired) { S.current = null; return go(holdAndForm); }
+        return err(res.error || 'Something went wrong. Text me and I will book it by hand.');
+      }
+      doneScreen(res, name);
+    }).catch(function () { btn.disabled = false; btn.textContent = 'Book it'; err('Could not reach the calendar. Try once more, or text me.'); });
+  });
+}
+function doneScreen(res, name) {
+  receipt([]); stack = []; S.current = null;
+  if (res.requested) { show('<h1>Got it, ' + esc(name.split(' ')[0]) + '</h1><p>I will confirm one of your options within ' + res.confirmWithinDays + ' days, by email and text. If another day would suit you better in the meantime, just text me.</p><div class="row"><a class="btn" href="sms:1' + digits(S.cfg.phone) + '">Text Carlo</a><button class="btn quiet" id="again">Book another time</button></div>', { noBack: true }); return wireAgain(); }
+  var ics = makeIcs(res);
+  show('<h1>You\'re on my calendar</h1><p class="ok">' + esc(res.when) + '</p><p>' + esc(res.where || '') + (res.findMe ? '<br>' + esc(res.findMe) : '') + '</p>' +
+    (S.type.confirm ? '<div class="note">' + esc(S.type.confirm) + '</div>' : '') +
+    (res.loom ? '<p><a href="' + esc(res.loom) + '" target="_blank" rel="noopener">Two minutes on what to expect</a></p>' : '') +
+    '<p class="muted small">A confirmation is on its way to your email. If something changes, text me and we\'ll sort it.</p>' +
+    '<div class="row">' + (res.directions ? '<a class="btn" href="' + esc(res.directions) + '" target="_blank" rel="noopener">Get directions</a>' : '') + (res.zoom ? '<a class="btn" href="' + esc(res.zoom) + '" target="_blank" rel="noopener">Join the Zoom</a>' : '') + '<a class="btn ghost" download="carlo.ics" href="' + ics + '">Add to my calendar</a><a class="btn quiet" href="sms:1' + digits(S.cfg.phone) + '">Text Carlo</a></div>' +
+    '<div class="row" style="margin-top:22px"><button class="btn quiet" id="again">Book another time</button></div>', { noBack: true });
+  wireAgain();
+}
+function wireAgain() { var a = document.getElementById('again'); if (a) a.addEventListener('click', function () { S.zip = ''; typeScreen(); }); }
+function makeIcs(res) {
+  var p = S.day.date.split('-'), s = S.win.s, e = s + (S.type.totalMinutes || S.type.minutes || 60);
+  function z(n) { return (n < 10 ? '0' : '') + n; }
+  function stamp(min) { return p[0] + p[1] + p[2] + 'T' + z(Math.floor(min / 60)) + z(min % 60) + '00'; }
+  var body = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Cutco Carlo//Booking//EN', 'BEGIN:VEVENT', 'UID:' + (res.bookingId || 'x') + '@cutcocarlo', 'DTSTART;TZID=America/Los_Angeles:' + stamp(s), 'DTEND;TZID=America/Los_Angeles:' + stamp(e), 'SUMMARY:' + S.type.name + ' with Carlo', 'LOCATION:' + String(res.where || '').replace(/,/g, '\\,'), 'DESCRIPTION:' + (res.findMe || '').replace(/,/g, '\\,'), 'END:VEVENT', 'END:VCALENDAR'].join('\r\n');
+  return 'data:text/calendar;charset=utf-8,' + encodeURIComponent(body);
+}
+function noneScreen(exhausted) {
+  S.current = noneScreen; receipt(S.type ? baseReceipt() : intentReceipt().concat([{ k: 'Zip', v: S.zip, back: zipScreen }]));
+  show('<h1>' + (exhausted === 'callme' ? 'Let me find you a time' : exhausted ? 'Those days are spoken for' : 'Nothing open near you yet') + '</h1><p>' + (exhausted === 'callme' ? 'Leave me your number and the days that usually work, and I\'ll call you to set it up, usually the same day.' : 'Leave me your number and the days that usually work, and I\'ll find you a time myself, usually the same day.') + '</p>' +
+    '<label for="rname">Your name</label><input id="rname" autocomplete="name"><label for="rphone">Mobile number</label><input id="rphone" type="tel" inputmode="tel" autocomplete="tel"><label for="remail">Email (optional)</label><input id="remail" type="email" inputmode="email"><label for="rwhen">What days or times usually work?</label><input id="rwhen" placeholder="Weekday mornings, any Saturday">' +
+    '<div class="row"><button class="btn" id="send">Ask Carlo for a time</button><button class="btn quiet" id="back">See the other options</button></div><p class="err" id="rErr" hidden></p>');
+  document.getElementById('back').addEventListener('click', function () { go(menuScreen); });
+  document.getElementById('send').addEventListener('click', function () {
+    var name = document.getElementById('rname').value.trim(), phone = digits(document.getElementById('rphone').value);
+    if (!name || phone.length < 10) { var e2 = document.getElementById('rErr'); e2.textContent = 'Your name and a 10-digit mobile number.'; e2.hidden = false; return; }
+    post('request', { name: name, phone: phone, email: document.getElementById('remail').value.trim(), zip: S.zip, type: S.type ? S.type.id : (S.intent ? S.intent.id : ''), wanted: S.type ? S.type.name : (S.intent ? S.intent.t : ''), when: document.getElementById('rwhen').value.trim(), campaign: campaign }).then(function (res) {
+      if (!res.ok) return fail(res.error || 'Could not send that.', noneScreen);
+      receipt([]); stack = []; show('<h1>Thanks, ' + esc(name.split(' ')[0]) + '</h1><p>I have your number and I will text you with a time.</p><div class="row"><button class="btn quiet" id="again">Book something else</button></div>', { noBack: true }); wireAgain();
+    });
+  });
+}
+function cancelScreen() {
+  loading('One moment');
+  show('<h1>Cancel this appointment?</h1><p>If something came up, no problem. Tap below and the time opens for someone else. Want a different time instead? Text me.</p><div class="row"><button class="btn" id="yes">Cancel it</button><a class="btn quiet" href="sms:14152612099">Text Carlo</a></div>');
+  document.getElementById('yes').addEventListener('click', function () {
+    post('cancel', { bookingId: qs.cancel, token: qs.tok || qs.t || '' }).then(function (res) { show(res.ok ? '<h1>Cancelled</h1><p>Thanks for letting me know. Whenever you want to pick a new time, the link in my email still works.</p>' : '<p class="err">' + esc(res.error || 'Could not cancel that one; text me.') + '</p>'); });
+  });
+}
+if (demo) document.body.appendChild(el('<div class="demo">Demo</div>'));
+/* Inside a preview frame, phone and text links go nowhere and can blank the
+   frame. There, copy the number instead and say so; on the live site the
+   links are real. */
+var inFrame = (function () { try { return window.top !== window.self; } catch (e) { return true; } })();
+document.addEventListener('click', function (e) {
+  var a = e.target.closest && e.target.closest('a[href^="tel:"], a[href^="sms:"]');
+  if (!a || !inFrame) return;
+  e.preventDefault();
+  var num = (S.cfg && S.cfg.phone) || '415-261-2099';
+  var done = function () { var t = a.textContent; a.textContent = 'Copied ' + num; setTimeout(function () { a.textContent = t; }, 1800); };
+  try { navigator.clipboard.writeText(num).then(done, done); } catch (err) { done(); }
+});
+start();
+</script>
+</body>
+</html>
