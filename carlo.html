@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Book for someone</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #FBFAF7; --ink: #1F2A33; --ink-2: #5A6670; --mist: #E7E4DC; --walnut: #5B3A21; --walnut-2: #7A5234;
+    --steel: #2E6F8E; --steel-wash: #E6F0F5; --ok: #2F6B3A; --warn: #8A4B12; --on-walnut: #FFFFFF;
+    --display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+    --body: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --r: 10px;
+  }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { color-scheme: dark; --paper: #15191D; --ink: #ECE9E1; --ink-2: #A9B1B8; --mist: #2A3138; --walnut: #B98A62; --walnut-2: #D1A57E; --steel: #7FB3CC; --steel-wash: #1E2A33; --ok: #8CCB97; --warn: #E0A463; --on-walnut: #15191D; } }
+  :root[data-theme="dark"] { color-scheme: dark; --paper: #15191D; --ink: #ECE9E1; --ink-2: #A9B1B8; --mist: #2A3138; --walnut: #B98A62; --walnut-2: #D1A57E; --steel: #7FB3CC; --steel-wash: #1E2A33; --ok: #8CCB97; --warn: #E0A463; --on-walnut: #15191D; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--body); font-size: 17px; line-height: 1.5; -webkit-text-size-adjust: 100%; }
+  main { max-width: 520px; margin: 0 auto; padding-block: 20px 56px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+  header .who { font-family: var(--display); font-weight: 700; font-size: 18px; letter-spacing: -0.01em; }
+  header .tag { color: var(--warn); font-size: 13px; font-weight: 700; }
+  h1 { font-family: var(--display); font-weight: 700; font-size: clamp(26px, 7vw, 32px); line-height: 1.08; letter-spacing: -0.02em; margin: 6px 0 10px; }
+  p { margin: 0 0 12px; max-width: 60ch; }
+  .muted { color: var(--ink-2); } .small { font-size: 15px; }
+  label { display: block; font-size: 15px; color: var(--ink-2); margin: 12px 0 4px; }
+  input, select, textarea { width: 100%; font: inherit; color: var(--ink); background: transparent; border: 1.5px solid var(--mist); border-radius: 8px; padding: 11px 12px; }
+  input:focus, select:focus, textarea:focus { outline: 3px solid var(--steel); outline-offset: 1px; border-color: var(--steel); }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .check { display: flex; align-items: center; gap: 10px; margin: 14px 0 0; color: var(--ink); font-size: 15px; }
+  .check input { width: 18px; height: 18px; margin: 0; padding: 0; accent-color: var(--walnut); }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 16px 0 0; }
+  .btn { display: inline-block; font-family: var(--display); font-weight: 700; font-size: 17px; line-height: 1.2; text-decoration: none; border: 1.5px solid var(--walnut); border-radius: var(--r); padding: 12px 18px; cursor: pointer; background: var(--walnut); color: var(--on-walnut); }
+  .btn:hover { background: var(--walnut-2); border-color: var(--walnut-2); }
+  .btn:focus-visible { outline: 3px solid var(--steel); outline-offset: 2px; }
+  .btn.ghost { background: transparent; border-color: var(--ink-2); color: var(--ink); }
+  .btn.quiet { background: transparent; border-color: transparent; color: var(--steel); padding-left: 8px; padding-right: 8px; text-decoration: underline; text-underline-offset: 3px; }
+  .btn[disabled] { opacity: .5; cursor: default; }
+  .note { background: var(--steel-wash); border-radius: var(--r); padding: 12px 14px; margin: 14px 0; font-size: 15px; }
+  .err { color: var(--warn); font-weight: 600; margin: 10px 0; }
+  .ok { color: var(--ok); font-weight: 600; }
+  .demo { position: fixed; top: 0; right: 0; background: var(--warn); color: #fff; font-size: 12px; padding: 4px 10px; border-bottom-left-radius: 8px; font-weight: 700; }
+  footer { margin-top: 40px; color: var(--ink-2); font-size: 14px; }
+</style>
+</head>
+<body>
+<main>
+  <header><div class="who">Cutco Carlo</div><div class="tag">Carlo only</div></header>
+  <section id="screen"></section>
+  <footer>Books through the same engine as the public page: calendar, Command Center row, confirmation. Settings live in the Booking Center sheet.</footer>
+</main>
+<script>
+var BRIDGE = 'https://script.google.com/macros/s/AKfycbyrzHUL0kF2JLqolSt1tTRHTSlpnFAwTgQQgQp1Qq4PAzdig3cAabB0L53rSa9tRVnW0w/exec';   // same web app URL as index.html
+var DEMO = {"config":{"ok":true,"version":"v1 2026-11-05","types":[{"id":"office","name":"Office Visit","group":"gifts","role":"primary","mode":"home","minutes":45,"perGuest":0,"window":15,"blurb":"I come to you with the pieces in hand, so you see exactly what your clients and team will open. Forty-five minutes, and you leave with a plan.","questions":[{"id":"Company","q":"Company","type":"text"},{"id":"gifts","q":"Who would the gifts be for?","opts":["Clients","Employees","Referral partners","Not sure yet"]},{"id":"count","q":"Roughly how many people?","opts":["Under 10","10 to 25","25 to 50","50 or more"]}],"askGuests":false,"loom":"","confirm":"I will bring samples and engraving examples. Have a sense of how many people you want to recognise this year.","mailIn":false,"link":"","linkText":""},{"id":"zoom-gifts","name":"Zoom: Business Gifts","group":"gifts","role":"fallback","mode":"desk","minutes":30,"perGuest":0,"window":0,"blurb":"Thirty minutes on screen to walk through how engraved Cutco works for clients, employees and referral partners, and what it would look like with your name on it.","questions":[{"id":"Company","q":"Company","type":"text"},{"id":"gifts","q":"Who would the gifts be for?","opts":["Clients","Employees","Referral partners","Not sure yet"]},{"id":"count","q":"Roughly how many people?","opts":["Under 10","10 to 25","25 to 50","50 or more"]}],"askGuests":false,"loom":"","confirm":"The Zoom link is in this email and on your calendar invite. Grab a coffee and a notepad.","mailIn":false,"link":"","linkText":""},{"id":"zoom-follow","name":"Zoom: Pick Up Where We Left Off","group":"gifts","role":"fallback","mode":"desk","minutes":30,"perGuest":0,"window":0,"blurb":"Already talking with me about gifts? Grab thirty minutes and we will lock in the details.","questions":[{"id":"Company","q":"Company","type":"text"}],"askGuests":false,"loom":"","confirm":"The Zoom link is in this email and on your calendar invite. Grab a coffee and a notepad.","mailIn":false,"link":"","linkText":""},{"id":"demo","name":"In-Home Shopping Visit","group":"shop","role":"primary","mode":"home","minutes":60,"perGuest":20,"window":20,"blurb":"Building the set, upgrading, or starting fresh? I bring the pieces to your kitchen so you can feel the difference in your own hands. About an hour.","questions":[{"id":"interests","q":"While I am there, what would you like to see? Check all that apply","type":"multi","opts":["Sharpening","Knife set upgrade","See what is new","Business gifts","Personal gifts","Cookware","Flatware","Gadgets and accessories","Factory service and replacements"]}],"askGuests":true,"loom":"","confirm":"The person who uses the knives should be there for the appointment.","mailIn":false,"link":"","linkText":""},{"id":"call","name":"Quick Call: Shop the Sale","group":"shop","role":"always","mode":"anywhere","minutes":15,"perGuest":0,"window":0,"blurb":"Fifteen minutes on the phone to find the best deal for what you want. I call you.","questions":[{"id":"interests","q":"While I am there, what would you like to see? Check all that apply","type":"multi","opts":["Sharpening","Knife set upgrade","See what is new","Business gifts","Personal gifts","Cookware","Flatware","Gadgets and accessories","Factory service and replacements"]}],"askGuests":false,"loom":"","confirm":"","mailIn":false,"link":"","linkText":""},{"id":"party","name":"Sharpening Party","group":"sharpen","role":"primary","mode":"home","minutes":120,"perGuest":20,"window":20,"blurb":"Know others with Cutco, or who want it? Let's take care of everyone while I'm in the area. You get them to your house and I'll take care of the rest.","questions":[{"id":"knives","q":"How many knives are we talking about?","opts":["1 to 5","6 to 10","11 to 15","16 to 20","More than 20"]},{"id":"interests","q":"While I am there, what would you like to see? Check all that apply","type":"multi","opts":["Sharpening","Knife set upgrade","See what is new","Business gifts","Personal gifts","Cookware","Flatware","Gadgets and accessories","Factory service and replacements"]}],"askGuests":true,"loom":"","confirm":"The person who uses the knives should be there for the appointment. Due to liability, the owner of any knives I sharpen must be present while I work on them. No drop-offs.","mailIn":false,"link":"","linkText":""},{"id":"sse","name":"Service and Sales Event Near You","group":"sharpen","role":"primary","mode":"venue","minutes":45,"perGuest":0,"window":0,"blurb":"Bring your Cutco to me at a spot near you. While we catch up I'll sharpen everything you brought, and my samples will be out so you can see what's new and feel the difference for yourself.","questions":[{"id":"knives","q":"How many knives are we talking about?","opts":["1 to 5","6 to 10","11 to 15","16 to 20","More than 20"]},{"id":"interests","q":"While you are here, what would you like to see? Check all that apply","type":"multi","opts":["Sharpening","Knife set upgrade","See what is new","Business gifts","Personal gifts","Cookware","Flatware","Gadgets and accessories","Factory service and replacements"]}],"askGuests":false,"loom":"","confirm":"Bring the knives yourself: due to liability, the owner of any knives I sharpen must be present while I work on them. No drop-offs.","mailIn":false,"link":"","linkText":""},{"id":"service","name":"In-Home Shop and Sharpen Visit","group":"sharpen","role":"primary","mode":"home","minutes":90,"perGuest":20,"window":20,"blurb":"I come to you, inspect and sharpen every piece, and remind you what each one does best. While they're out on the counter, you'll see what's new and what would round out your collection.","questions":[{"id":"knives","q":"How many knives are we talking about?","opts":["1 to 5","6 to 10","11 to 15","16 to 20","More than 20"]},{"id":"interests","q":"While I am there, what would you like to see? Check all that apply","type":"multi","opts":["Sharpening","Knife set upgrade","See what is new","Business gifts","Personal gifts","Cookware","Flatware","Gadgets and accessories","Factory service and replacements"]}],"askGuests":true,"loom":"","confirm":"Have your Cutco out on the counter and I will take it from there. The person who uses the knives should be there for the appointment. Due to liability, the owner of any knives I sharpen must be present while I work on them. No drop-offs.","mailIn":false,"link":"","linkText":""},{"id":"mailin","name":"Factory Service by Mail","group":"sharpen","role":"always","mode":"info","minutes":0,"perGuest":0,"window":0,"blurb":"Ship your Cutco to the factory and it comes back sharpened. No visit needed, and I am a text away if you get stuck.","questions":[],"askGuests":false,"loom":"","confirm":"","mailIn":true,"link":"https://www.cutco.com/customer/return-repair?repnbr=32698949&pcutco2=PTL&pcutco1=E0000024&audience=00004_EN_REPS&PWP=N&promocode=PTL","linkText":"Start the service request"}],"carlo":"Carlo","phone":"415-261-2099","confirmWithinDays":3,"holdMin":10,"optionsPerStep":2,"giftsOptionsPerStep":4,"deskOptionsPerStep":4,"openDayPerPage":3,"daysBeforeCallback":2,"presentLine":"The person who uses the knives should be there for the appointment.","liabilityLine":"Due to liability, the owner of any knives I sharpen must be present while I work on them. No drop-offs."}};
+var demo = BRIDGE.indexOf('PASTE') === 0 || /[?&]demo=1/.test(location.search);
+var $screen = document.getElementById('screen');
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+function el(h) { var d = document.createElement('div'); d.innerHTML = h.trim(); return d.firstChild; }
+function show(h) { $screen.innerHTML = ''; $screen.appendChild(el('<div>' + h + '</div>')); window.scrollTo({ top: 0 }); }
+function digits(s) { return String(s || '').replace(/\D/g, '').replace(/^1(\d{10})$/, '$1'); }
+function key() { try { return localStorage.getItem('bk_admin') || ''; } catch (e) { return ''; } }
+function setKey(k) { try { localStorage.setItem('bk_admin', k); } catch (e) {} }
+function post(body) {
+  body.ak = key();
+  if (demo) return new Promise(function (res) { setTimeout(function () {
+    if (body.op === 'config') return res(DEMO.config);
+    if (body.op === 'adminbook') {
+      if (/clash/i.test(body.name) && !body.force) return res({ ok: false, conflict: true, with: ['Sharpening visit: Pat (3:00 PM to 4:30 PM)'], error: 'That time overlaps Sharpening visit: Pat (3:00 PM to 4:30 PM)' });
+      return res({ ok: true, confirmed: true, when: body.date + ', ' + body.start, where: body.address || (body.type.indexOf('zoom') === 0 ? 'Zoom' : 'Phone'), intake: body.phone ? 'Command Center: new row added with a Deck ID' : 'Command Center: skipped (no phone)', clash: body.force ? ['Pat'] : [] });
+    }
+    res({ ok: false, error: 'demo' });
+  }, 500); });
+  return fetch(BRIDGE, { method: 'POST', body: JSON.stringify(body), headers: { 'Content-Type': 'text/plain;charset=utf-8' } }).then(function (r) { return r.json(); });
+}
+var CFG = null;
+function start() {
+  if (!key() && !demo) return keyScreen();
+  show('<p class="muted">Loading types</p>');
+  post({ op: 'config' }).then(function (c) { if (!c.ok) return keyScreen(c.error); CFG = c; form(); }).catch(function () { keyScreen('Could not reach the engine.'); });
+}
+function keyScreen(err) {
+  show('<h1>Your key</h1><p class="muted">The admin key from the Booking Center setup. It stays on this phone.</p>' + (err ? '<p class="err">' + esc(err) + '</p>' : '') + '<label for="k">Admin key</label><input id="k" autocomplete="off"><div class="row"><button class="btn" id="save">Save and continue</button></div>');
+  document.getElementById('save').addEventListener('click', function () { setKey(document.getElementById('k').value.trim()); start(); });
+}
+function todayStr() { var d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function form(prev) {
+  prev = prev || {};
+  var types = CFG.types.filter(function (t) { return t.mode !== 'info'; });
+  show('<h1>Book for someone</h1>' +
+    '<label for="type">Appointment</label><select id="type">' + types.map(function (t) { return '<option value="' + esc(t.id) + '"' + (prev.type === t.id ? ' selected' : '') + '>' + esc(t.name) + ' (' + t.minutes + ' min)</option>'; }).join('') + '</select>' +
+    '<div class="two"><div><label for="date">Day</label><input id="date" type="date" value="' + esc(prev.date || todayStr()) + '"></div><div><label for="start">Start time</label><input id="start" type="time" step="900" value="' + esc(prev.start || '10:00') + '"></div></div>' +
+    '<div class="two"><div><label for="minutes">Length (min, blank = type default)</label><input id="minutes" inputmode="numeric" value="' + esc(prev.minutes || '') + '"></div><div id="guestsWrap"><label for="guests">Guests expected</label><input id="guests" inputmode="numeric" value="' + esc(prev.guests || '0') + '"></div></div>' +
+    '<label for="name">Name</label><input id="name" autocomplete="off" value="' + esc(prev.name || '') + '">' +
+    '<div class="two"><div><label for="phone">Mobile</label><input id="phone" type="tel" inputmode="tel" value="' + esc(prev.phone || '') + '"></div><div><label for="email">Email</label><input id="email" type="email" inputmode="email" value="' + esc(prev.email || '') + '"></div></div>' +
+    '<div id="addrWrap"><label for="address">Street address, city, zip</label><input id="address" value="' + esc(prev.address || '') + '"></div>' +
+    '<label for="note">Note for the calendar and the row (optional)</label><input id="note" value="' + esc(prev.note || '') + '">' +
+    '<label class="check"><input type="checkbox" id="sendEmail"' + (prev.sendEmail === false ? '' : ' checked') + '> Send them the confirmation email</label>' +
+    '<div class="row"><button class="btn" id="book">Book it</button><a class="btn quiet" href="index.html">Open the customer page</a></div><p class="err" id="err" hidden></p>');
+  var typeEl = document.getElementById('type');
+  function syncType() { var t = types.filter(function (x) { return x.id === typeEl.value; })[0]; document.getElementById('addrWrap').hidden = t.mode !== 'home'; document.getElementById('guestsWrap').hidden = !t.askGuests; }
+  typeEl.addEventListener('change', syncType); syncType();
+  document.getElementById('book').addEventListener('click', function () { submit(false); });
+}
+function read() {
+  return { op: 'adminbook', type: document.getElementById('type').value, date: document.getElementById('date').value, start: document.getElementById('start').value,
+    minutes: document.getElementById('minutes').value.trim(), guests: document.getElementById('guests').value.trim(), name: document.getElementById('name').value.trim(),
+    phone: digits(document.getElementById('phone').value), email: document.getElementById('email').value.trim(), address: document.getElementById('address').value.trim(),
+    note: document.getElementById('note').value.trim(), sendEmail: document.getElementById('sendEmail').checked };
+}
+function submit(force) {
+  var b = read(); b.force = force;
+  var errEl = document.getElementById('err'); function err(m) { errEl.textContent = m; errEl.hidden = false; }
+  if (!b.name) return err('A name.');
+  if (!b.date || !b.start) return err('Day and start time.');
+  if (b.phone && b.phone.length < 10) return err('Mobile should be 10 digits, or leave it blank.');
+  var btn = document.getElementById('book'); btn.disabled = true; btn.textContent = 'Booking';
+  post(b).then(function (res) {
+    if (!res.ok) {
+      btn.disabled = false; btn.textContent = 'Book it';
+      if (res.conflict) {
+        var last = b;
+        show('<h1>That time is taken</h1><p>' + esc(res.error) + '</p><div class="row"><button class="btn ghost" id="anyway">Book it anyway</button><button class="btn quiet" id="back">Change the time</button></div>');
+        document.getElementById('anyway').addEventListener('click', function () { form(last); setTimeout(function () { submit(true); }, 50); });
+        document.getElementById('back').addEventListener('click', function () { form(last); });
+        return;
+      }
+      return err(res.error || 'Something went wrong.');
+    }
+    show('<h1>Booked</h1><p class="ok">' + esc(res.when) + '</p><p>' + esc(res.where || '') + '</p>' + (res.clash && res.clash.length ? '<p class="muted small">Booked over: ' + esc(res.clash.join(', ')) + '</p>' : '') + '<p class="muted small">' + esc(res.intake || '') + (b.sendEmail && b.email ? ' · confirmation emailed' : ' · no email sent') + '</p><div class="row"><button class="btn" id="another">Book another</button></div>');
+    document.getElementById('another').addEventListener('click', function () { form({ type: b.type, date: b.date }); });
+  }).catch(function () { btn.disabled = false; btn.textContent = 'Book it'; err('Could not reach the engine.'); });
+}
+if (demo) document.body.appendChild(el('<div class="demo">Demo</div>'));
+start();
+</script>
+</body>
+</html>
