@@ -415,6 +415,7 @@ function formScreen() {
     var answers = {};
     Array.prototype.forEach.call(document.querySelectorAll('[data-q]'), function (q) { if (q.value) answers[q.getAttribute('data-q')] = q.value; });
     Array.prototype.forEach.call(document.querySelectorAll('[data-multi]'), function (g) { var picked = Array.prototype.map.call(g.querySelectorAll('input:checked'), function (c) { return c.value; }); if (picked.length) answers[g.getAttribute('data-multi')] = picked.join(', '); });
+    S.gaveEmail = !!email;
     var btn = document.getElementById('book'); btn.disabled = true; btn.textContent = 'Booking';
     post('book', { bookingId: S.hold.bookingId, name: name, phone: phone, email: email, address: address, answers: answers, choices: S.far ? S.choices.map(function (c) { return { date: c.date, s: c.s }; }) : [], campaign: campaign }).then(function (res) {
       if (!res.ok) {
@@ -429,12 +430,12 @@ function formScreen() {
 }
 function doneScreen(res, name) {
   receipt([]); stack = []; S.current = null;
-  if (res.requested) { show('<h1>Got it, ' + esc(name.split(' ')[0]) + '</h1><p>I will confirm one of your options within ' + res.confirmWithinDays + ' days, by email and text. If another day would suit you better in the meantime, just text me.</p><div class="row"><a class="btn" href="sms:1' + digits(S.cfg.phone) + '">Text Carlo</a><button class="btn quiet" id="again">Book another time</button></div>', { noBack: true }); return wireAgain(); }
+  if (res.requested) { show('<h1>Got it, ' + esc(name.split(' ')[0]) + '</h1><p>I will confirm one of your options within ' + res.confirmWithinDays + ' days' + (S.gaveEmail ? ', by email' : ', by text') + '. If another day would suit you better in the meantime, just text me.</p><div class="row"><a class="btn" href="sms:1' + digits(S.cfg.phone) + '">Text Carlo</a><button class="btn quiet" id="again">Book another time</button></div>', { noBack: true }); return wireAgain(); }
   var ics = makeIcs(res);
   show('<h1>You\'re on my calendar</h1><p class="ok">' + esc(res.when) + '</p><p>' + esc(res.where || '') + (res.findMe ? '<br>' + esc(res.findMe) : '') + '</p>' +
     (S.type.confirm ? '<div class="note">' + esc(S.type.confirm) + '</div>' : '') +
     (res.loom ? '<p><a href="' + esc(res.loom) + '" target="_blank" rel="noopener">Two minutes on what to expect</a></p>' : '') +
-    '<p class="muted small">A confirmation is on its way to your email. If something changes, text me and we\'ll sort it.</p>' +
+    '<p class="muted small">' + (S.gaveEmail ? 'A confirmation is on its way to your email, with a calendar file attached. ' : 'You did not leave an email, so save this screen or add it to your calendar below. ') + 'If something changes, text me and we\'ll sort it.</p>' +
     '<div class="row">' + (res.directions ? '<a class="btn" href="' + esc(res.directions) + '" target="_blank" rel="noopener">Get directions</a>' : '') + (res.zoom ? '<a class="btn" href="' + esc(res.zoom) + '" target="_blank" rel="noopener">Join the Zoom</a>' : '') + '<a class="btn ghost" download="carlo.ics" href="' + ics + '">Add to my calendar</a><a class="btn quiet" href="sms:1' + digits(S.cfg.phone) + '">Text Carlo</a></div>' +
     '<div class="row" style="margin-top:22px"><button class="btn quiet" id="again">Book another time</button></div>', { noBack: true });
   wireAgain();
@@ -464,9 +465,9 @@ function noneScreen(exhausted) {
 }
 function cancelScreen() {
   loading('One moment');
-  show('<h1>Cancel this appointment?</h1><p>If something came up, no problem. Tap below and the time opens for someone else. Want a different time instead? Text me.</p><div class="row"><button class="btn" id="yes">Cancel it</button><a class="btn quiet" href="sms:14152612099">Text Carlo</a></div>');
+  show('<h1>Cancel this appointment?</h1><p>If something came up, no problem. Tap below and the time opens for someone else. You can pick a new time right after.</p><div class="row"><button class="btn" id="yes">Cancel it</button><a class="btn quiet" href="sms:14152612099">Text Carlo</a></div>');
   document.getElementById('yes').addEventListener('click', function () {
-    post('cancel', { bookingId: qs.cancel, token: qs.tok || qs.t || '' }).then(function (res) { show(res.ok ? '<h1>Cancelled</h1><p>Thanks for letting me know. Whenever you want to pick a new time, the link in my email still works.</p>' : '<p class="err">' + esc(res.error || 'Could not cancel that one; text me.') + '</p>'); });
+    post('cancel', { bookingId: qs.cancel, token: qs.tok || qs.t || '' }).then(function (res) { show(res.ok ? '<h1>Cancelled</h1><p>Thanks for letting me know. Want a different time instead?</p><div class="row"><a class="btn" href="' + esc(location.pathname + (res.type ? '?type=' + encodeURIComponent(res.type) : '')) + '">Pick a new time</a><a class="btn quiet" href="sms:14152612099">Text Carlo</a></div>' : '<p class="err">' + esc(res.error || 'Could not cancel that one; text me.') + '</p>'); });
   });
 }
 if (demo) document.body.appendChild(el('<div class="demo">Demo</div>'));

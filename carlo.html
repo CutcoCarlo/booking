@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Book for someone</title>
+<title>Booking Center</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="robots" content="noindex">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -45,13 +45,30 @@
   .ok { color: var(--ok); font-weight: 600; }
   .demo { position: fixed; top: 0; right: 0; background: var(--warn); color: #fff; font-size: 12px; padding: 4px 10px; border-bottom-left-radius: 8px; font-weight: 700; }
   footer { margin-top: 40px; color: var(--ink-2); font-size: 14px; }
+  h2 { font-family: var(--display); font-weight: 700; font-size: 19px; letter-spacing: -0.01em; margin: 24px 0 8px; }
+  .menu { display: grid; gap: 10px; margin-top: 14px; }
+  .item { display: block; width: 100%; text-align: left; font: inherit; color: var(--ink); background: transparent; border: 1.5px solid var(--mist); border-radius: var(--r); padding: 14px 16px; cursor: pointer; }
+  .item:hover, .item:focus-visible { border-color: var(--steel); outline: none; }
+  .item .t { font-family: var(--display); font-weight: 700; font-size: 18px; display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+  .item .d { color: var(--ink-2); font-size: 15px; margin-top: 2px; }
+  .item.hot { border-color: var(--warn); background: var(--steel-wash); }
+  .pill { display: inline-block; font-family: var(--body); font-size: 12.5px; font-weight: 700; padding: 2px 9px; border-radius: 999px; background: var(--steel-wash); color: var(--steel); white-space: nowrap; }
+  .pill.route { background: #F6E9DC; color: #8A4B12; } .pill.closed { background: var(--mist); color: var(--ink-2); } .pill.event { background: #E3F1E6; color: var(--ok); }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .pill.route { background: #3A2A1A; color: #E0A463; } :root:not([data-theme="light"]) .pill.event { background: #1E3324; } }
+  .card { border: 1.5px solid var(--mist); border-radius: var(--r); padding: 12px 14px; margin: 0 0 10px; }
+  .card .when { font-weight: 700; } .card .who { font-family: var(--display); font-weight: 700; font-size: 18px; margin-top: 2px; }
+  .acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .sbtn { display: inline-block; font: inherit; font-size: 15px; font-weight: 700; text-decoration: none; color: var(--ink); background: transparent; border: 1.5px solid var(--ink-2); border-radius: 8px; padding: 7px 12px; cursor: pointer; }
+  .sbtn.go { background: var(--walnut); border-color: var(--walnut); color: var(--on-walnut); }
+  .sbtn.warn { border-color: var(--warn); color: var(--warn); }
+  textarea { min-height: 84px; resize: vertical; }
 </style>
 </head>
 <body>
 <main>
   <header><div class="who">Cutco Carlo</div><div class="tag">Carlo only</div></header>
   <section id="screen"></section>
-  <footer>Books through the same engine as the public page: calendar, Command Center row, confirmation. Settings live in the Booking Center sheet.</footer>
+  <footer>Everything here runs through the same engine as the public page: calendar, Command Center row, emails.</footer>
 </main>
 <script>
 var BRIDGE = 'https://script.google.com/macros/s/AKfycbyrzHUL0kF2JLqolSt1tTRHTSlpnFAwTgQQgQp1Qq4PAzdig3cAabB0L53rSa9tRVnW0w/exec';   // same web app URL as index.html
@@ -76,15 +93,49 @@ function post(body) {
       if (body.op === 'savesettings') { (body.types || []).forEach(function (x) { DEMO.config.types.forEach(function (t) { if (t.id === x.id) { t.minutes = parseInt(x.minutes, 10) || t.minutes; if (x.perGuest !== '' && x.perGuest != null) t.perGuest = parseInt(x.perGuest, 10) || 0; } }); }); DEMO.noVisitZips = body.noVisitZips; DEMO.noVisitBeyondMin = parseInt(body.noVisitBeyondMin, 10) || 0; }
       return res({ ok: true, version: 'demo', types: DEMO.config.types.filter(function (t) { return t.mode !== 'info'; }).map(function (t) { return { id: t.id, name: t.name, mode: t.mode, minutes: t.minutes, perGuest: t.perGuest || 0, askGuests: !!t.askGuests, active: true }; }), noVisitZips: DEMO.noVisitZips || '', noVisitBeyondMin: DEMO.noVisitBeyondMin || 0 });
     }
+    if (/^(agenda|admincancel|adminmove|approve|plans|saveplan|savetemplate)$/.test(body.op)) return res(demoAdmin(body));
     res({ ok: false, error: 'demo' });
-  }, 500); });
+  }, 400); });
   return fetch(BRIDGE, { method: 'POST', body: JSON.stringify(body), headers: { 'Content-Type': 'text/plain;charset=utf-8' } }).then(function (r) { return r.json(); });
 }
 var CFG = null;
+/* demo data for the control screens */
+var DEMOX = null;
+function demoAdmin(body) {
+  function addDays(n) { var d = new Date(); d.setDate(d.getDate() + n); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+  function pretty(ds) { var p = ds.split('-'), d = new Date(+p[0], +p[1] - 1, +p[2]); return ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][d.getDay()] + ' ' + ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getMonth()] + ' ' + d.getDate(); }
+  if (!DEMOX) {
+    var mk = function (id, n, start, len, type, mode, name, where, extra) { var ds = addDays(n), o = { id: id, status: 'Confirmed', date: ds, dayLabel: pretty(ds), start: start, end: start + len, clock: hm12(start), time: hm12(start), typeId: type, type: type, mode: mode, name: name, phone: '5552014477', email: name.split(' ')[0].toLowerCase() + '@example.com', address: mode === 'home' ? where : '', where: where, zip: '', zone: '', guests: 0, answers: {}, note: '', directions: mode === 'home' ? 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(where) : '', choices: [], text: 'Hi ' + name.split(' ')[0] + ', it\'s Carlo with Cutco. Looking forward to our ' + type + ' on ' + pretty(ds) + ' at ' + hm12(start) + '. Text me here if anything changes.', emailSubject: 'Tomorrow: ' + type, emailBody: 'Hi ' + name.split(' ')[0] + ',\n\nSee you ' + pretty(ds) + ', ' + hm12(start) + '.\n\nCarlo' }; for (var k in (extra || {})) o[k] = extra[k]; return o; };
+    var week = [['Sunday', 'closed'], ['Monday', 'closed'], ['Tuesday', 'desk'], ['Wednesday', 'route'], ['Thursday', 'desk'], ['Friday', 'route'], ['Saturday', 'closed']].map(function (w, i) { return { dow: i, name: w[0], mode: w[1], start: w[1] === 'closed' ? '' : '9:00', end: w[1] === 'closed' ? '' : '18:00', offer: [], zone: '' }; });
+    DEMOX = { bookings: [mk('bk-1', 0, 600, 60, 'In-Home Shopping Visit', 'home', 'Maria Lopez', '18 Birch Lane, Los Gatos, CA 95030', { answers: { interests: 'Sharpening, See what is new' }, guests: 2 }), mk('bk-2', 1, 570, 15, 'Phone Call', 'anywhere', 'Dan Whitfield', 'By phone; I will call you'), mk('bk-3', 3, 855, 45, 'Service and Sales Event Near You', 'venue', 'Laura Burns', '290B Rose St, Danville, CA 94526')],
+      requests: [mk('bk-9', 6, 570, 90, 'In-Home Shop and Sharpen Visit', 'home', 'Fay Faraway', '500 B St, Hayward, CA 94541', { status: 'Requested', choices: [{ date: addDays(6), s: 570, label: pretty(addDays(6)) + ', 9:30 AM' }, { date: addDays(8), s: 690, label: pretty(addDays(8)) + ', 11:30 AM' }, { date: addDays(13), s: 810, label: pretty(addDays(13)) + ', 1:30 PM' }] })],
+      week: week, plans: {} };
+  }
+  var X = DEMOX;
+  function plans() {
+    var days = [];
+    for (var i = 0; i < 42; i++) { var ds = addDays(i), p = ds.split('-'), dow = new Date(+p[0], +p[1] - 1, +p[2]).getDay(), o = X.plans[ds] || X.week[dow];
+      days.push({ date: ds, label: pretty(ds), dow: dow, mode: o.mode, start: o.start || '9:00', end: o.end || '18:00', zone: o.zone || '', offer: o.offer || [], note: o.note || '', venue: o.venue || '', custom: !!X.plans[ds], booked: X.bookings.filter(function (b) { return b.date === ds; }).length }); }
+    return { ok: true, days: days, week: X.week, zones: ['Santa Cruz County', 'South Bay', 'Peninsula', 'Tri-Valley', 'East Bay', 'Monterey'], earliest: '9:00', doneBy: '18:00', zoomOn: true };
+  }
+  if (!X.plans[addDays(10)]) X.plans[addDays(10)] = { mode: 'event', start: '11:00', end: '19:00', venue: 'Stoneridge Mall', offer: [] };
+  if (body.op === 'agenda') return { ok: true, today: addDays(0), bookings: X.bookings, requests: X.requests };
+  if (body.op === 'admincancel') { X.bookings = X.bookings.filter(function (b) { return b.id !== body.bookingId; }); return { ok: true, emailed: body.sendEmail !== false }; }
+  if (body.op === 'adminmove') { var b = X.bookings.filter(function (x) { return x.id === body.bookingId; })[0]; if (/^12:00/.test(body.start) && !body.force) return { ok: false, conflict: true, with: ['Lunch (12:00 PM to 1:00 PM)'], error: 'That time overlaps Lunch (12:00 PM to 1:00 PM)' };
+    var st = body.start.split(':'), len = b.end - b.start; b.date = body.date; b.dayLabel = pretty(body.date); b.start = (+st[0]) * 60 + (+st[1]); b.end = b.start + len; b.clock = b.time = hm12(b.start); X.bookings.sort(function (a, c) { return a.date < c.date ? -1 : a.date > c.date ? 1 : a.start - c.start; }); return { ok: true, when: b.dayLabel + ', ' + b.clock, emailed: body.sendEmail !== false, clash: [] }; }
+  if (body.op === 'approve') { var r = X.requests.filter(function (x) { return x.id === body.bookingId; })[0]; X.requests = X.requests.filter(function (x) { return x !== r; }); if (body.decline) return { ok: true, declined: true };
+    var c = r.choices[body.choice || 0]; r.status = 'Confirmed'; r.date = c.date; r.dayLabel = pretty(c.date); r.start = c.s; r.end = c.s + 90; r.clock = r.time = hm12(c.s); X.bookings.push(r); return { ok: true, confirmed: true, when: c.label }; }
+  if (body.op === 'saveplan') { if (X.plans[body.date] && X.plans[body.date].mode === 'event') return { ok: false, error: 'That is an event day. Event days are set up on the Day Plans tab of the Booking Center sheet.' }; if (body.mode === 'default') delete X.plans[body.date]; else X.plans[body.date] = { mode: body.mode, start: body.start, end: body.end, zone: body.zone, offer: body.offer || [], note: body.note }; return plans(); }
+  if (body.op === 'savetemplate') { var w = X.week[body.dow]; w.mode = body.mode; w.start = body.start; w.end = body.end; w.offer = body.offer || []; return plans(); }
+  return plans();
+}
+function hm12(min) { var h = Math.floor(min / 60), m = min % 60, ap = h >= 12 ? 'PM' : 'AM', hh = h % 12 || 12; return hh + ':' + (m < 10 ? '0' : '') + m + ' ' + ap; }
+function t12(t) { var m = String(t || '').match(/^(\d{1,2}):(\d{2})/); return m ? hm12((+m[1]) * 60 + (+m[2])) : ''; }
+function pad5(t) { var m = String(t || '').match(/^(\d{1,2}):(\d{2})/); return m ? (m[1].length < 2 ? '0' : '') + m[1] + ':' + m[2] : ''; }
 function start() {
   if (!key() && !demo) return keyScreen();
-  show('<p class="muted">Loading types</p>');
-  post({ op: 'config' }).then(function (c) { if (!c.ok) return keyScreen(c.error); CFG = c; form(); }).catch(function () { keyScreen('Could not reach the engine.'); });
+  show('<p class="muted">Loading</p>');
+  post({ op: 'config' }).then(function (c) { if (!c.ok) return keyScreen(c.error); CFG = c; home(); }).catch(function () { keyScreen('Could not reach the engine.'); });
 }
 function keyScreen(err) {
   show('<h1>Your key</h1><p class="muted">The admin key from the Booking Center setup. It stays on this phone.</p>' + (err ? '<p class="err">' + esc(err) + '</p>' : '') + '<label for="k">Admin key</label><input id="k" autocomplete="off"><div class="row"><button class="btn" id="save">Save and continue</button></div>');
@@ -103,8 +154,8 @@ function form(prev) {
     '<div id="addrWrap"><label for="address">Street address, city, zip</label><input id="address" value="' + esc(prev.address || '') + '"></div>' +
     '<label for="note">Note for the calendar and the row (optional)</label><input id="note" value="' + esc(prev.note || '') + '">' +
     '<label class="check"><input type="checkbox" id="sendEmail"' + (prev.sendEmail === false ? '' : ' checked') + '> Send them the confirmation email</label>' +
-    '<div class="row"><button class="btn" id="book">Book it</button><a class="btn quiet" href="index.html">Open the customer page</a><button class="btn quiet" id="openSettings" type="button">Settings</button></div><p class="err" id="err" hidden></p>');
-  document.getElementById('openSettings').addEventListener('click', function () { settingsScreen(); });
+    '<div class="row"><button class="btn" id="book">Book it</button><button class="btn quiet" id="toMenu" type="button">Back to menu</button></div><p class="err" id="err" hidden></p>');
+  document.getElementById('toMenu').addEventListener('click', home);
   var typeEl = document.getElementById('type');
   function syncType() { var t = types.filter(function (x) { return x.id === typeEl.value; })[0]; document.getElementById('addrWrap').hidden = t.mode !== 'home'; document.getElementById('guestsWrap').hidden = !t.askGuests; }
   typeEl.addEventListener('change', syncType); syncType();
@@ -135,8 +186,9 @@ function submit(force) {
       }
       return err(res.error || 'Something went wrong.');
     }
-    show('<h1>Booked</h1><p class="ok">' + esc(res.when) + '</p><p>' + esc(res.where || '') + '</p>' + (res.clash && res.clash.length ? '<p class="muted small">Booked over: ' + esc(res.clash.join(', ')) + '</p>' : '') + '<p class="muted small">' + esc(res.intake || '') + (b.sendEmail && b.email ? ' · confirmation emailed' : ' · no email sent') + '</p><div class="row"><button class="btn" id="another">Book another</button></div>');
+    show('<h1>Booked</h1><p class="ok">' + esc(res.when) + '</p><p>' + esc(res.where || '') + '</p>' + (res.clash && res.clash.length ? '<p class="muted small">Booked over: ' + esc(res.clash.join(', ')) + '</p>' : '') + '<p class="muted small">' + esc(res.intake || '') + (b.sendEmail && b.email ? ' · confirmation emailed' : ' · no email sent') + '</p><div class="row"><button class="btn" id="another">Book another</button><button class="btn quiet" id="toMenu2">Back to menu</button></div>');
     document.getElementById('another').addEventListener('click', function () { form({ type: b.type, date: b.date }); });
+    document.getElementById('toMenu2').addEventListener('click', home);
   }).catch(function () { btn.disabled = false; btn.textContent = 'Book it'; err('Could not reach the engine.'); });
 }
 /* ── Settings: appointment lengths and where visits are not offered ── */
@@ -144,8 +196,8 @@ function settingsScreen(saved) {
   show('<p class="muted">Loading settings</p>');
   post({ op: 'settings' }).then(function (c) {
     if (!c.ok) {
-      show('<h1>Settings</h1><p class="err">' + esc(c.error === 'unknown op' ? 'The Booking Engine needs its v1.4 update before settings can be changed here.' : (c.error || 'Could not load settings.')) + '</p><div class="row"><button class="btn quiet" id="backSet">Back to booking</button></div>');
-      document.getElementById('backSet').addEventListener('click', function () { form(); });
+      show('<h1>Settings</h1><p class="err">' + esc(c.error === 'unknown op' ? 'The Booking Engine needs its v1.4 update before settings can be changed here.' : (c.error || 'Could not load settings.')) + '</p><div class="row"><button class="btn quiet" id="backSet">Back to menu</button></div>');
+      document.getElementById('backSet').addEventListener('click', home);
       return;
     }
     var editable = c.types.filter(function (t) { return t.mode !== 'venue'; });
@@ -161,7 +213,10 @@ function settingsScreen(saved) {
       '<p class="muted">Customers in these zip codes are offered a phone call or Zoom only, never a home or office visit. Events still show if one is near them.</p>' +
       '<label for="nvz">Zip codes (commas between them; 945* blocks every zip starting 945; 94501-94599 blocks a range)</label><textarea id="nvz" rows="3">' + esc(c.noVisitZips || '') + '</textarea>' +
       '<label for="nvb">Also block any zip more than this many minutes of driving from home (0 = off)</label><input id="nvb" inputmode="numeric" value="' + esc(c.noVisitBeyondMin || 0) + '">' +
-      '<div class="row"><button class="btn" id="saveSet">Save settings</button><button class="btn quiet" id="backSet">Back to booking</button></div><p class="err" id="setErr" hidden></p>');
+      (c.textTemplate != null ? '<h1 style="margin-top:28px;font-size:24px">Reminder text</h1><p class="muted">What the Text button on My schedule writes for you. You can use {{name}}, {{type}}, {{day}}, {{clock}}, {{where}}.</p><label for="txt">Text message</label><textarea id="txt" rows="4">' + esc(c.textTemplate) + '</textarea>' +
+        '<h1 style="margin-top:28px;font-size:24px">Booking notices</h1><label for="nem">Email that gets a notice for every booking, cancel and request</label><input id="nem" type="email" inputmode="email" value="' + esc(c.notifyEmail || '') + '">' +
+        (c.emailsLeftToday != null ? '<p class="muted small" style="margin-top:8px">Emails the engine can still send today: ' + esc(c.emailsLeftToday) + ' (Gmail allows about 100 a day).</p>' : '') : '') +
+      '<div class="row"><button class="btn" id="saveSet">Save settings</button><button class="btn quiet" id="backSet">Back to menu</button></div><p class="err" id="setErr" hidden></p>');
     document.getElementById('backSet').addEventListener('click', function () { CFG = null; start(); });
     document.getElementById('saveSet').addEventListener('click', function () {
       var errEl = document.getElementById('setErr'); errEl.hidden = true;
@@ -173,12 +228,253 @@ function settingsScreen(saved) {
       });
       if (bad) { errEl.textContent = bad; errEl.hidden = false; return; }
       var btn = document.getElementById('saveSet'); btn.disabled = true; btn.textContent = 'Saving';
-      post({ op: 'savesettings', types: types, noVisitZips: document.getElementById('nvz').value.trim(), noVisitBeyondMin: document.getElementById('nvb').value.trim() || '0' }).then(function (r) {
+      var payload = { op: 'savesettings', types: types, noVisitZips: document.getElementById('nvz').value.trim(), noVisitBeyondMin: document.getElementById('nvb').value.trim() || '0' };
+      if (document.getElementById('txt')) { payload.textTemplate = document.getElementById('txt').value.trim(); payload.notifyEmail = document.getElementById('nem').value.trim(); }
+      post(payload).then(function (r) {
         if (!r.ok) { btn.disabled = false; btn.textContent = 'Save settings'; errEl.textContent = r.error || 'Could not save.'; errEl.hidden = false; return; }
         settingsScreen('Saved.');
       }).catch(function () { btn.disabled = false; btn.textContent = 'Save settings'; errEl.textContent = 'Could not reach the engine.'; errEl.hidden = false; });
     });
-  }).catch(function () { show('<h1>Settings</h1><p class="err">Could not reach the engine.</p><div class="row"><button class="btn quiet" id="backSet">Back to booking</button></div>'); document.getElementById('backSet').addEventListener('click', function () { form(); }); });
+  }).catch(function () { show('<h1>Settings</h1><p class="err">Could not reach the engine.</p><div class="row"><button class="btn quiet" id="backSet">Back to menu</button></div>'); document.getElementById('backSet').addEventListener('click', home); });
+}
+
+/* ════════ v1.5: the control screens ════════ */
+var AG = null, PL = null;
+var MODE_NAME = { route: 'Field day', desk: 'Home office', event: 'Event', closed: 'Closed' };
+function backRow(extra) { return '<div class="row">' + (extra || '') + '<button class="btn quiet" id="toMenuX" type="button">Back to menu</button></div>'; }
+function wireBack() { var b = document.getElementById('toMenuX'); if (b) b.addEventListener('click', home); }
+function needEngine(res, title) {
+  show('<h1>' + esc(title) + '</h1><p class="err">' + esc(res && res.error === 'unknown op' ? 'The Booking Engine needs its v1.5 update before this screen works.' : ((res && res.error) || 'Could not reach the engine.')) + '</p>' + backRow());
+  wireBack();
+}
+function home() {
+  show('<h1>Booking Center</h1><div class="menu">' +
+    '<button class="item" id="mSched"><div class="t"><span>My schedule</span><span class="pill" id="nSched" hidden></span></div><div class="d" id="dSched">What is booked, with Text, Call and Email ready to send</div></button>' +
+    '<button class="item" id="mWait"><div class="t"><span>Waiting for you</span><span class="pill" id="nWait" hidden></span></div><div class="d" id="dWait">Requests from customers who are a drive away</div></button>' +
+    '<button class="item" id="mBook"><div class="t"><span>Book for someone</span></div><div class="d">Put an appointment on the calendar yourself</div></button>' +
+    '<button class="item" id="mPlan"><div class="t"><span>Day planner</span></div><div class="d">Open or close a day and choose what it offers</div></button>' +
+    '<button class="item" id="mSet"><div class="t"><span>Settings</span></div><div class="d">Appointment lengths, zip codes, reminder wording</div></button>' +
+    '</div><div class="row"><a class="btn quiet" href="index.html">Open the customer page</a></div>');
+  document.getElementById('mSched').addEventListener('click', function () { scheduleScreen(); });
+  document.getElementById('mWait').addEventListener('click', function () { requestsScreen(); });
+  document.getElementById('mBook').addEventListener('click', function () { form(); });
+  document.getElementById('mPlan').addEventListener('click', function () { plannerScreen(); });
+  document.getElementById('mSet').addEventListener('click', function () { settingsScreen(); });
+  post({ op: 'agenda' }).then(function (a) {
+    if (!a.ok || !document.getElementById('nSched')) return;
+    AG = a;
+    var n = a.bookings.length, w = a.requests.length, ns = document.getElementById('nSched'), nw = document.getElementById('nWait');
+    ns.textContent = n + ' booked'; ns.hidden = false;
+    if (n) document.getElementById('dSched').textContent = 'Next: ' + a.bookings[0].name + ', ' + a.bookings[0].dayLabel + ' at ' + a.bookings[0].clock;
+    if (w) { nw.textContent = w + ' waiting'; nw.hidden = false; document.getElementById('mWait').classList.add('hot'); document.getElementById('dWait').textContent = 'Pick a time for ' + a.requests.map(function (r) { return r.name.split(' ')[0]; }).join(', '); }
+    else document.getElementById('dWait').textContent = 'Nothing waiting. Requests from customers who are a drive away land here.';
+  }).catch(function () {});
+}
+function smsHref(b) { return 'sms:+1' + b.phone + '?&body=' + encodeURIComponent(b.text || ''); }
+function mailHref(b) { return 'mailto:' + encodeURIComponent(b.email) + '?subject=' + encodeURIComponent(b.emailSubject || '') + '&body=' + encodeURIComponent(b.emailBody || ''); }
+function contactBtns(b) {
+  return (b.phone && b.phone.length >= 10 ? '<a class="sbtn go" href="' + esc(smsHref(b)) + '">Text</a><a class="sbtn" href="tel:+1' + esc(b.phone) + '">Call</a>' : '') +
+    (b.email ? '<a class="sbtn" href="' + esc(mailHref(b)) + '">Email</a>' : '') + (b.directions ? '<a class="sbtn" href="' + esc(b.directions) + '" target="_blank" rel="noopener">Map</a>' : '');
+}
+function bookingCard(b, acts) {
+  var extra = [];
+  if (b.guests) extra.push('Guests expected: ' + b.guests);
+  for (var k in (b.answers || {})) extra.push(k + ': ' + b.answers[k]);
+  return '<div class="card"><div class="when">' + esc(hm12(b.start) + ' to ' + hm12(b.end)) + ' · ' + esc(b.type) + '</div><div class="who">' + esc(b.name) + '</div>' +
+    '<div class="muted small">' + esc(b.where || '') + '</div>' + (extra.length ? '<div class="muted small">' + esc(extra.join(' · ')) + '</div>' : '') + '<div class="acts">' + acts + '</div></div>';
+}
+function scheduleScreen(msg) {
+  show('<p class="muted">Loading your schedule</p>');
+  post({ op: 'agenda' }).then(function (a) {
+    if (!a.ok) return needEngine(a, 'My schedule');
+    AG = a;
+    var html = '<h1>My schedule</h1>' + (msg ? '<p class="ok">' + esc(msg) + '</p>' : ''), last = '';
+    if (!a.bookings.length) html += '<p class="muted">Nothing booked yet.</p>';
+    a.bookings.forEach(function (b, i) {
+      if (b.date !== last) { html += '<h2>' + esc(b.dayLabel) + (b.date === a.today ? ' · today' : '') + '</h2>'; last = b.date; }
+      html += bookingCard(b, contactBtns(b) + '<button class="sbtn" data-move="' + i + '">Move</button><button class="sbtn warn" data-cancel="' + i + '">Cancel</button>');
+    });
+    show(html + backRow()); wireBack();
+    Array.prototype.forEach.call(document.querySelectorAll('[data-move]'), function (el2) { el2.addEventListener('click', function () { moveScreen(a.bookings[+el2.getAttribute('data-move')]); }); });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-cancel]'), function (el2) { el2.addEventListener('click', function () { cancelBookingScreen(a.bookings[+el2.getAttribute('data-cancel')]); }); });
+  }).catch(function () { needEngine(null, 'My schedule'); });
+}
+function moveScreen(b, prev) {
+  prev = prev || {};
+  show('<h1>Move ' + esc(b.name.split(' ')[0]) + '</h1><p class="muted">' + esc(b.type) + ', now ' + esc(b.dayLabel) + ' at ' + esc(b.clock) + '.</p>' +
+    '<div class="two"><div><label for="mvDate">New day</label><input id="mvDate" type="date" value="' + esc(prev.date || b.date) + '"></div><div><label for="mvStart">New start time</label><input id="mvStart" type="time" step="900" value="' + esc(prev.start || pad5(Math.floor(b.start / 60) + ':' + ('0' + b.start % 60).slice(-2))) + '"></div></div>' +
+    (b.email ? '<label class="check"><input type="checkbox" id="mvMail" checked> Email them the new time</label>' : '<p class="muted small">No email on file, so text them the new time yourself.</p>') +
+    '<div class="row"><button class="btn" id="mvGo">Move it</button><button class="btn quiet" id="mvBack">Back to schedule</button></div><p class="err" id="mvErr" hidden></p>');
+  document.getElementById('mvBack').addEventListener('click', function () { scheduleScreen(); });
+  function go(force) {
+    var body = { op: 'adminmove', bookingId: b.id, date: document.getElementById('mvDate').value, start: document.getElementById('mvStart').value, force: !!force, sendEmail: document.getElementById('mvMail') ? document.getElementById('mvMail').checked : false };
+    var errEl = document.getElementById('mvErr');
+    if (!body.date || !body.start) { errEl.textContent = 'A day and a start time.'; errEl.hidden = false; return; }
+    var btn = document.getElementById('mvGo'); btn.disabled = true; btn.textContent = 'Moving';
+    post(body).then(function (r) {
+      if (r.ok) return scheduleScreen('Moved to ' + r.when + (r.emailed ? '. They have been emailed.' : '.'));
+      if (r.conflict) {
+        show('<h1>That time is taken</h1><p>' + esc(r.error) + '</p><div class="row"><button class="btn ghost" id="mvAny">Move it anyway</button><button class="btn quiet" id="mvChange">Change the time</button></div>');
+        document.getElementById('mvAny').addEventListener('click', function () { moveScreen(b, body); setTimeout(function () { go(true); }, 30); });
+        document.getElementById('mvChange').addEventListener('click', function () { moveScreen(b, body); });
+        return;
+      }
+      btn.disabled = false; btn.textContent = 'Move it'; errEl.textContent = r.error || 'Could not move it.'; errEl.hidden = false;
+    }).catch(function () { btn.disabled = false; btn.textContent = 'Move it'; errEl.textContent = 'Could not reach the engine.'; errEl.hidden = false; });
+  }
+  document.getElementById('mvGo').addEventListener('click', function () { go(false); });
+}
+function cancelBookingScreen(b) {
+  show('<h1>Cancel ' + esc(b.name.split(' ')[0]) + '?</h1><p>' + esc(b.type) + ', ' + esc(b.dayLabel) + ' at ' + esc(b.clock) + '. The time opens up again for other customers.</p>' +
+    (b.email ? '<label class="check"><input type="checkbox" id="cxMail" checked> Email them that it is cancelled</label><label for="cxNote">Add a line to that email (optional)</label><input id="cxNote" placeholder="Something came up on my end; pick any new time that suits you.">' : '<p class="muted small">No email on file, so let them know yourself.</p>') +
+    '<div class="row"><button class="btn" id="cxGo">Cancel the appointment</button><button class="btn quiet" id="cxBack">Keep it</button></div><p class="err" id="cxErr" hidden></p>');
+  document.getElementById('cxBack').addEventListener('click', function () { scheduleScreen(); });
+  document.getElementById('cxGo').addEventListener('click', function () {
+    var btn = document.getElementById('cxGo'); btn.disabled = true; btn.textContent = 'Cancelling';
+    post({ op: 'admincancel', bookingId: b.id, sendEmail: document.getElementById('cxMail') ? document.getElementById('cxMail').checked : false, note: document.getElementById('cxNote') ? document.getElementById('cxNote').value.trim() : '' }).then(function (r) {
+      if (r.ok) return scheduleScreen('Cancelled ' + b.name + (r.emailed ? '. They have been emailed.' : '.'));
+      btn.disabled = false; btn.textContent = 'Cancel the appointment'; var e2 = document.getElementById('cxErr'); e2.textContent = r.error || 'Could not cancel it.'; e2.hidden = false;
+    }).catch(function () { btn.disabled = false; btn.textContent = 'Cancel the appointment'; var e3 = document.getElementById('cxErr'); e3.textContent = 'Could not reach the engine.'; e3.hidden = false; });
+  });
+}
+function requestsScreen(msg) {
+  show('<p class="muted">Loading requests</p>');
+  post({ op: 'agenda' }).then(function (a) {
+    if (!a.ok) return needEngine(a, 'Waiting for you');
+    AG = a;
+    var html = '<h1>Waiting for you</h1>' + (msg ? '<p class="ok">' + esc(msg) + '</p>' : '') +
+      '<p class="muted">These customers are far enough away that they picked a few times instead of booking one. Confirm the one that suits your route and they get the confirmation email.</p>';
+    if (!a.requests.length) html += '<p class="muted">Nothing is waiting on you.</p>';
+    a.requests.forEach(function (r, i) {
+      html += '<div class="card"><div class="who">' + esc(r.name) + '</div><div class="when">' + esc(r.type) + '</div><div class="muted small">' + esc(r.where || r.zip || '') + '</div><div class="acts">' +
+        r.choices.map(function (c, k) { return '<button class="sbtn go" data-ok="' + i + ':' + k + '">Confirm ' + esc(c.label) + '</button>'; }).join('') + '</div><div class="acts">' + contactBtns(r) + '<button class="sbtn warn" data-no="' + i + '">Decline</button></div></div>';
+    });
+    show(html + backRow()); wireBack();
+    Array.prototype.forEach.call(document.querySelectorAll('[data-ok]'), function (el2) { el2.addEventListener('click', function () {
+      var p = el2.getAttribute('data-ok').split(':'), r = a.requests[+p[0]];
+      el2.disabled = true; el2.textContent = 'Confirming';
+      post({ op: 'approve', bookingId: r.id, choice: +p[1] }).then(function (res) { requestsScreen(res.ok ? 'Confirmed ' + r.name + ' for ' + (res.when || r.choices[+p[1]].label) + '. It is on your calendar and they have the confirmation.' : (res.error || 'Could not confirm it.')); })
+        .catch(function () { requestsScreen('Could not reach the engine.'); });
+    }); });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-no]'), function (el2) { el2.addEventListener('click', function () { declineScreen(a.requests[+el2.getAttribute('data-no')]); }); });
+  }).catch(function () { needEngine(null, 'Waiting for you'); });
+}
+function declineScreen(r) {
+  show('<h1>Decline ' + esc(r.name.split(' ')[0]) + '?</h1><p class="muted">They get an email saying none of those times line up with a day you are in their area, and inviting them to send other days.</p>' +
+    '<label for="dcNote">Add a line (optional)</label><input id="dcNote" placeholder="I will be up your way the first week of December.">' +
+    '<div class="row"><button class="btn" id="dcGo">Send the decline</button><button class="btn quiet" id="dcBack">Back</button></div>');
+  document.getElementById('dcBack').addEventListener('click', function () { requestsScreen(); });
+  document.getElementById('dcGo').addEventListener('click', function () {
+    post({ op: 'approve', bookingId: r.id, decline: true, note: document.getElementById('dcNote').value.trim() }).then(function (res) { requestsScreen(res.ok ? 'Declined ' + r.name + '. They have been emailed.' : (res.error || 'Could not decline it.')); }).catch(function () { requestsScreen('Could not reach the engine.'); });
+  });
+}
+/* ── Day planner ── */
+function offerText(mode, offer) {
+  if (mode === 'closed') return 'Nothing can be booked';
+  if (mode === 'event') return 'Event slots';
+  var o = offer && offer.length ? offer : ['visits', 'calls'], out = [];
+  if (mode === 'route' && o.indexOf('visits') >= 0) out.push('Visits');
+  if (mode === 'desk' && o.indexOf('zoom') >= 0) out.push('Zoom');
+  if (o.indexOf('calls') >= 0) out.push(mode === 'route' ? 'Calls from the car' : 'Calls');
+  return out.length ? out.join(', ') : 'Nothing offered';
+}
+function plannerScreen(msg) {
+  show('<p class="muted">Loading the planner</p>');
+  post({ op: 'plans' }).then(function (p) {
+    if (!p.ok) return needEngine(p, 'Day planner');
+    PL = p;
+    var html = '<h1>Day planner</h1>' + (msg ? '<p class="ok">' + esc(msg) + '</p>' : '') + '<p class="muted">Every day follows your normal week unless you change it here. Tap a day to change it.</p>' +
+      '<div class="row" style="margin-top:6px"><button class="btn ghost" id="plWeek">My normal week</button></div>', lastWeek = '';
+    p.days.forEach(function (d, i) {
+      var parts = d.date.split('-'), dt = new Date(+parts[0], +parts[1] - 1, +parts[2]), mon = new Date(dt); mon.setDate(dt.getDate() - ((dt.getDay() + 6) % 7));
+      var wk = mon.toDateString();
+      if (wk !== lastWeek) { html += '<h2>Week of ' + esc(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][mon.getMonth()] + ' ' + mon.getDate()) + '</h2><div class="menu">'; lastWeek = wk; }
+      html += '<button class="item" data-day="' + i + '"><div class="t"><span>' + esc(d.label) + '</span><span class="pill ' + esc(d.mode) + '">' + esc(d.mode === 'event' ? 'Event' : MODE_NAME[d.mode] || d.mode) + '</span></div>' +
+        '<div class="d">' + esc((d.mode === 'closed' ? '' : t12(d.start) + ' to ' + t12(d.end) + ' · ') + (d.mode === 'event' ? (d.venue || 'Event') : offerText(d.mode, d.offer)) + (d.zone ? ' · ' + d.zone + ' only' : '') + (d.custom && d.mode !== 'event' ? ' · set by you' : '') + (d.booked ? ' · ' + d.booked + ' booked' : '')) + '</div></button>';
+      var next = p.days[i + 1], nparts = next ? next.date.split('-') : null, ndt = next ? new Date(+nparts[0], +nparts[1] - 1, +nparts[2]) : null;
+      if (!next || ndt.getDay() === 1) html += '</div>';
+    });
+    show(html + backRow()); wireBack();
+    document.getElementById('plWeek').addEventListener('click', weekScreen);
+    Array.prototype.forEach.call(document.querySelectorAll('[data-day]'), function (el2) { el2.addEventListener('click', function () { dayScreen(p.days[+el2.getAttribute('data-day')]); }); });
+  }).catch(function () { needEngine(null, 'Day planner'); });
+}
+function planEditor(d, isWeekday) {
+  var o = d.offer && d.offer.length ? d.offer : ['visits', 'calls'];
+  return '<label for="peMode">What kind of day</label><select id="peMode"><option value="route">Field day: I drive to customers</option><option value="desk">Home office: phone and Zoom</option><option value="closed">Closed: nothing can be booked</option></select>' +
+    '<div id="peOpen"><div class="two"><div><label for="peStart">From</label><input id="peStart" type="time" step="900" value="' + esc(pad5(d.start) || pad5(PL.earliest)) + '"></div><div><label for="peEnd">Until</label><input id="peEnd" type="time" step="900" value="' + esc(pad5(d.end) || pad5(PL.doneBy)) + '"></div></div>' +
+    '<label style="margin-top:16px">What customers can book</label>' +
+    '<label class="check" id="peVisitsRow"><input type="checkbox" id="peVisits"' + (o.indexOf('visits') >= 0 ? ' checked' : '') + '> Home and office visits</label>' +
+    '<label class="check" id="peZoomRow"><input type="checkbox" id="peZoom"' + (d.offer && d.offer.indexOf('zoom') >= 0 ? ' checked' : '') + '> Zoom meetings</label>' +
+    '<label class="check"><input type="checkbox" id="peCalls"' + (o.indexOf('calls') >= 0 ? ' checked' : '') + '> <span id="peCallsText">Phone calls</span></label>' +
+    (PL.zoomOn ? '' : '<p class="muted small" id="peZoomOff" style="margin-top:8px">Zoom is switched off as an appointment type right now, so ticking it has no effect yet.</p>') +
+    (isWeekday ? '' : '<div id="peZoneRow"><label for="peZone">Only for customers in one area (optional)</label><select id="peZone"><option value="">Any area</option>' + PL.zones.map(function (z) { return '<option' + (d.zone === z ? ' selected' : '') + '>' + esc(z) + '</option>'; }).join('') + '</select></div>') +
+    '</div>' + (isWeekday ? '' : '<label for="peNote">Note to yourself (optional)</label><input id="peNote" value="' + esc(d.note || '') + '">');
+}
+function wireEditor(d) {
+  var m = document.getElementById('peMode'); m.value = d.mode === 'desk' || d.mode === 'closed' ? d.mode : 'route';
+  function sync() {
+    document.getElementById('peOpen').hidden = m.value === 'closed';
+    document.getElementById('peVisitsRow').style.display = m.value === 'route' ? '' : 'none';
+    document.getElementById('peZoomRow').style.display = m.value === 'desk' ? '' : 'none';
+    var z = document.getElementById('peZoneRow'); if (z) z.hidden = m.value !== 'route';
+    var zo = document.getElementById('peZoomOff'); if (zo) zo.hidden = m.value !== 'desk';
+    document.getElementById('peCallsText').textContent = m.value === 'route' ? 'Phone calls, taken from the car between visits' : 'Phone calls';
+  }
+  m.addEventListener('change', sync); sync();
+}
+function readEditor() {
+  var mode = document.getElementById('peMode').value, offer = [];
+  if (mode === 'route' && document.getElementById('peVisits').checked) offer.push('visits');
+  if (mode === 'desk' && document.getElementById('peZoom').checked) offer.push('zoom');
+  if (document.getElementById('peCalls').checked) offer.push('calls');
+  var out = { mode: mode, start: document.getElementById('peStart').value, end: document.getElementById('peEnd').value, offer: offer };
+  var z = document.getElementById('peZone'); if (z) out.zone = z.value;
+  var n = document.getElementById('peNote'); if (n) out.note = n.value.trim();
+  if (mode !== 'closed' && !offer.length) out.error = 'Tick at least one thing customers can book, or choose Closed.';
+  if (mode !== 'closed' && (!out.start || !out.end || out.end <= out.start)) out.error = 'The Until time should be after the From time.';
+  return out;
+}
+function dayScreen(d) {
+  if (d.mode === 'event') {
+    show('<h1>' + esc(d.label) + '</h1><p><span class="pill event">Event</span> ' + esc(d.venue || '') + ', ' + esc(t12(d.start)) + ' to ' + esc(t12(d.end)) + '.</p><p class="muted">Event days carry extra details (venue, slot length, breaks), so they are set up on the Day Plans tab of the Booking Center sheet, or just ask Claude to add or change one.</p><div class="row"><button class="btn quiet" id="dyBack">Back to the planner</button></div>');
+    document.getElementById('dyBack').addEventListener('click', function () { plannerScreen(); });
+    return;
+  }
+  show('<h1>' + esc(d.label) + '</h1><p class="muted">' + (d.custom ? 'You set this day by hand.' : 'Following your normal ' + esc(d.label.split(' ')[0]) + '.') + (d.booked ? ' ' + d.booked + ' already booked; changing the day does not move or cancel them.' : '') + '</p>' + planEditor(d, false) +
+    '<div class="row"><button class="btn" id="dySave">Save this day</button>' + (d.custom ? '<button class="btn ghost" id="dyReset">Back to my normal week</button>' : '') + '<button class="btn quiet" id="dyBack">Cancel</button></div><p class="err" id="dyErr" hidden></p>');
+  wireEditor(d);
+  document.getElementById('dyBack').addEventListener('click', function () { plannerScreen(); });
+  function send(body, done) {
+    body.op = 'saveplan'; body.date = d.date;
+    post(body).then(function (r) { if (r.ok) return plannerScreen(done); var e2 = document.getElementById('dyErr'); e2.textContent = r.error || 'Could not save.'; e2.hidden = false; })
+      .catch(function () { var e3 = document.getElementById('dyErr'); e3.textContent = 'Could not reach the engine.'; e3.hidden = false; });
+  }
+  document.getElementById('dySave').addEventListener('click', function () {
+    var v = readEditor(); if (v.error) { var e2 = document.getElementById('dyErr'); e2.textContent = v.error; e2.hidden = false; return; }
+    send(v, 'Saved ' + d.label + '.');
+  });
+  var rs = document.getElementById('dyReset'); if (rs) rs.addEventListener('click', function () { send({ mode: 'default' }, d.label + ' is back to your normal week.'); });
+}
+function weekScreen(msg) {
+  var html = '<h1>My normal week</h1>' + (typeof msg === 'string' ? '<p class="ok">' + esc(msg) + '</p>' : '') + '<p class="muted">What each weekday offers unless you change a particular date in the planner.</p><div class="menu">';
+  [1, 2, 3, 4, 5, 6, 0].forEach(function (i) {
+    var w = PL.week[i];
+    html += '<button class="item" data-wd="' + i + '"><div class="t"><span>' + esc(w.name) + '</span><span class="pill ' + esc(w.mode) + '">' + esc(MODE_NAME[w.mode] || w.mode) + '</span></div><div class="d">' + esc((w.mode === 'closed' ? '' : t12(w.start || PL.earliest) + ' to ' + t12(w.end || PL.doneBy) + ' · ') + offerText(w.mode, w.offer)) + '</div></button>';
+  });
+  show(html + '</div><div class="row"><button class="btn quiet" id="wkBack">Back to the planner</button></div>');
+  document.getElementById('wkBack').addEventListener('click', function () { plannerScreen(); });
+  Array.prototype.forEach.call(document.querySelectorAll('[data-wd]'), function (el2) { el2.addEventListener('click', function () { weekdayScreen(PL.week[+el2.getAttribute('data-wd')]); }); });
+}
+function weekdayScreen(w) {
+  show('<h1>Every ' + esc(w.name) + '</h1>' + planEditor(w, true) + '<div class="row"><button class="btn" id="wdSave">Save</button><button class="btn quiet" id="wdBack">Cancel</button></div><p class="err" id="wdErr" hidden></p>');
+  wireEditor(w);
+  document.getElementById('wdBack').addEventListener('click', function () { weekScreen(); });
+  document.getElementById('wdSave').addEventListener('click', function () {
+    var v = readEditor(), e2 = document.getElementById('wdErr'); if (v.error) { e2.textContent = v.error; e2.hidden = false; return; }
+    v.op = 'savetemplate'; v.dow = w.dow;
+    post(v).then(function (r) { if (!r.ok) { e2.textContent = r.error || 'Could not save.'; e2.hidden = false; return; } PL = r; weekScreen('Saved every ' + w.name + '.'); }).catch(function () { e2.textContent = 'Could not reach the engine.'; e2.hidden = false; });
+  });
 }
 if (demo) document.body.appendChild(el('<div class="demo">Demo</div>'));
 start();
