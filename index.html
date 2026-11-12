@@ -245,10 +245,12 @@ function menuScreen(showFallback) {
   receipt(intentReceipt().concat([{ k: 'Zip', v: S.zip, back: zipScreen }]));
   var items = S.menu.types.filter(function (m) { return showFallback ? (m.hidden || m.role === 'always') && !m.info : !m.hidden; });
   if (!items.length) return noneScreen();
-  if (items.length === 1 && !items[0].info && !showFallback) { S.skippedMenu = true; S.menuItem = items[0]; S.current = zipScreen; return pickType(typeById(items[0].type)); }
+  if (items.length === 1 && !items[0].info && !showFallback && !S.menu.noVisit) { S.skippedMenu = true; S.menuItem = items[0]; S.current = zipScreen; return pickType(typeById(items[0].type)); }
   S.skippedMenu = false;
   var h = showFallback ? 'Let\'s get the conversation started' : (GROUP_H[S.intent.id] || 'Which works best?');
   var sub = showFallback ? 'None of the in-person days lined up, so here is the quickest way to get going.' : (GROUP_SUB[S.intent.id] || '');
+  /* a zip Carlo does not drive out to: say so, and show what is open from anywhere */
+  if (S.menu.noVisit && !showFallback) { h = 'Here\'s how we can connect'; sub = 'I don\'t make home or office visits out your way, so here is what I can offer you.'; }
   show('<h1>' + esc(h) + '</h1>' + (sub ? '<p class="muted">' + esc(sub) + '</p>' : '') + '<div class="choices">' + items.map(function (m) {
     var t = typeById(m.type); if (!t) return '';
     var hint = m.info ? '' : m.far && t.mode === 'home' ? 'You\'re a drive for me; pick a few windows and I\'ll confirm within ' + (m.confirmWithinDays || 3) + ' days' : '';
@@ -309,6 +311,7 @@ function loadDays() {
   loading(S.type.mode === 'home' ? 'Sizing the visit and checking the drive to ' + S.zip : 'Checking my calendar');
   api('days', { type: S.type.id, zip: S.zip, guests: S.guests }).then(function (res) {
     if (!res.ok) return fail(res.error === 'zip not found' ? 'I could not find that zip. Check it and try again.' : 'Could not read the calendar: ' + (res.error || ''), res.error === 'zip not found' ? zipScreen : loadDays);
+    if (res.noVisit && S.intent) { S.type = null; S.menuItem = null; return loadMenu(); }   // no visits for this zip: show what is open instead
     S.days = res.days || []; S.far = !!res.far; S.confirmWithinDays = res.confirmWithinDays || 3; S.dayPage = 0;
     if (S.eventFilter) { var f = S.days.filter(function (d) { return d.eventId === S.eventFilter; }); if (f.length) S.days = f; }
     if (res.type && res.type.minutes) S.type.totalMinutes = res.type.minutes;

@@ -72,6 +72,10 @@ function post(body) {
       if (/clash/i.test(body.name) && !body.force) return res({ ok: false, conflict: true, with: ['Sharpening visit: Pat (3:00 PM to 4:30 PM)'], error: 'That time overlaps Sharpening visit: Pat (3:00 PM to 4:30 PM)' });
       return res({ ok: true, confirmed: true, when: body.date + ', ' + body.start, where: body.address || (body.type.indexOf('zoom') === 0 ? 'Zoom' : 'Phone'), intake: body.phone ? 'Command Center: new row added with a Deck ID' : 'Command Center: skipped (no phone)', clash: body.force ? ['Pat'] : [] });
     }
+    if (body.op === 'settings' || body.op === 'savesettings') {
+      if (body.op === 'savesettings') { (body.types || []).forEach(function (x) { DEMO.config.types.forEach(function (t) { if (t.id === x.id) { t.minutes = parseInt(x.minutes, 10) || t.minutes; if (x.perGuest !== '' && x.perGuest != null) t.perGuest = parseInt(x.perGuest, 10) || 0; } }); }); DEMO.noVisitZips = body.noVisitZips; DEMO.noVisitBeyondMin = parseInt(body.noVisitBeyondMin, 10) || 0; }
+      return res({ ok: true, version: 'demo', types: DEMO.config.types.filter(function (t) { return t.mode !== 'info'; }).map(function (t) { return { id: t.id, name: t.name, mode: t.mode, minutes: t.minutes, perGuest: t.perGuest || 0, askGuests: !!t.askGuests, active: true }; }), noVisitZips: DEMO.noVisitZips || '', noVisitBeyondMin: DEMO.noVisitBeyondMin || 0 });
+    }
     res({ ok: false, error: 'demo' });
   }, 500); });
   return fetch(BRIDGE, { method: 'POST', body: JSON.stringify(body), headers: { 'Content-Type': 'text/plain;charset=utf-8' } }).then(function (r) { return r.json(); });
@@ -99,7 +103,8 @@ function form(prev) {
     '<div id="addrWrap"><label for="address">Street address, city, zip</label><input id="address" value="' + esc(prev.address || '') + '"></div>' +
     '<label for="note">Note for the calendar and the row (optional)</label><input id="note" value="' + esc(prev.note || '') + '">' +
     '<label class="check"><input type="checkbox" id="sendEmail"' + (prev.sendEmail === false ? '' : ' checked') + '> Send them the confirmation email</label>' +
-    '<div class="row"><button class="btn" id="book">Book it</button><a class="btn quiet" href="index.html">Open the customer page</a></div><p class="err" id="err" hidden></p>');
+    '<div class="row"><button class="btn" id="book">Book it</button><a class="btn quiet" href="index.html">Open the customer page</a><button class="btn quiet" id="openSettings" type="button">Settings</button></div><p class="err" id="err" hidden></p>');
+  document.getElementById('openSettings').addEventListener('click', function () { settingsScreen(); });
   var typeEl = document.getElementById('type');
   function syncType() { var t = types.filter(function (x) { return x.id === typeEl.value; })[0]; document.getElementById('addrWrap').hidden = t.mode !== 'home'; document.getElementById('guestsWrap').hidden = !t.askGuests; }
   typeEl.addEventListener('change', syncType); syncType();
@@ -133,6 +138,47 @@ function submit(force) {
     show('<h1>Booked</h1><p class="ok">' + esc(res.when) + '</p><p>' + esc(res.where || '') + '</p>' + (res.clash && res.clash.length ? '<p class="muted small">Booked over: ' + esc(res.clash.join(', ')) + '</p>' : '') + '<p class="muted small">' + esc(res.intake || '') + (b.sendEmail && b.email ? ' · confirmation emailed' : ' · no email sent') + '</p><div class="row"><button class="btn" id="another">Book another</button></div>');
     document.getElementById('another').addEventListener('click', function () { form({ type: b.type, date: b.date }); });
   }).catch(function () { btn.disabled = false; btn.textContent = 'Book it'; err('Could not reach the engine.'); });
+}
+/* ── Settings: appointment lengths and where visits are not offered ── */
+function settingsScreen(saved) {
+  show('<p class="muted">Loading settings</p>');
+  post({ op: 'settings' }).then(function (c) {
+    if (!c.ok) {
+      show('<h1>Settings</h1><p class="err">' + esc(c.error === 'unknown op' ? 'The Booking Engine needs its v1.4 update before settings can be changed here.' : (c.error || 'Could not load settings.')) + '</p><div class="row"><button class="btn quiet" id="backSet">Back to booking</button></div>');
+      document.getElementById('backSet').addEventListener('click', function () { form(); });
+      return;
+    }
+    var editable = c.types.filter(function (t) { return t.mode !== 'venue'; });
+    var rows = editable.map(function (t) {
+      var guest = t.perGuest || t.askGuests;
+      return '<div class="two"><div><label for="m_' + esc(t.id) + '">' + esc(t.name) + (t.active ? '' : ' (off)') + '</label><input id="m_' + esc(t.id) + '" inputmode="numeric" value="' + esc(t.minutes) + '"></div>' +
+        (guest ? '<div><label for="g_' + esc(t.id) + '">Extra minutes per guest</label><input id="g_' + esc(t.id) + '" inputmode="numeric" value="' + esc(t.perGuest) + '"></div>' : '<div></div>') + '</div>';
+    }).join('');
+    show('<h1>Settings</h1>' + (saved ? '<p class="ok">' + esc(saved) + '</p>' : '') +
+      '<p class="muted">Minutes each appointment is scheduled for. New bookings use the new length within a couple of minutes; appointments already booked keep theirs.</p>' + rows +
+      '<p class="muted small" style="margin-top:12px">Event slots (Service and Sales Events) are set per event day in the Booking Center sheet, Day Plans tab, Slot min column.</p>' +
+      '<h1 style="margin-top:28px;font-size:24px">No in-person visits</h1>' +
+      '<p class="muted">Customers in these zip codes are offered a phone call or Zoom only, never a home or office visit. Events still show if one is near them.</p>' +
+      '<label for="nvz">Zip codes (commas between them; 945* blocks every zip starting 945; 94501-94599 blocks a range)</label><textarea id="nvz" rows="3">' + esc(c.noVisitZips || '') + '</textarea>' +
+      '<label for="nvb">Also block any zip more than this many minutes of driving from home (0 = off)</label><input id="nvb" inputmode="numeric" value="' + esc(c.noVisitBeyondMin || 0) + '">' +
+      '<div class="row"><button class="btn" id="saveSet">Save settings</button><button class="btn quiet" id="backSet">Back to booking</button></div><p class="err" id="setErr" hidden></p>');
+    document.getElementById('backSet').addEventListener('click', function () { CFG = null; start(); });
+    document.getElementById('saveSet').addEventListener('click', function () {
+      var errEl = document.getElementById('setErr'); errEl.hidden = true;
+      var types = [], bad = '';
+      editable.forEach(function (t) {
+        var m = parseInt(document.getElementById('m_' + t.id).value, 10), gEl = document.getElementById('g_' + t.id);
+        if (isNaN(m) || m < 5 || m > 600) bad = t.name + ': minutes should be between 5 and 600.';
+        types.push({ id: t.id, minutes: m, perGuest: gEl ? gEl.value.trim() : '' });
+      });
+      if (bad) { errEl.textContent = bad; errEl.hidden = false; return; }
+      var btn = document.getElementById('saveSet'); btn.disabled = true; btn.textContent = 'Saving';
+      post({ op: 'savesettings', types: types, noVisitZips: document.getElementById('nvz').value.trim(), noVisitBeyondMin: document.getElementById('nvb').value.trim() || '0' }).then(function (r) {
+        if (!r.ok) { btn.disabled = false; btn.textContent = 'Save settings'; errEl.textContent = r.error || 'Could not save.'; errEl.hidden = false; return; }
+        settingsScreen('Saved.');
+      }).catch(function () { btn.disabled = false; btn.textContent = 'Save settings'; errEl.textContent = 'Could not reach the engine.'; errEl.hidden = false; });
+    });
+  }).catch(function () { show('<h1>Settings</h1><p class="err">Could not reach the engine.</p><div class="row"><button class="btn quiet" id="backSet">Back to booking</button></div>'); document.getElementById('backSet').addEventListener('click', function () { form(); }); });
 }
 if (demo) document.body.appendChild(el('<div class="demo">Demo</div>'));
 start();
