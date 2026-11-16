@@ -93,7 +93,7 @@ function post(body) {
       if (body.op === 'savesettings') { (body.types || []).forEach(function (x) { DEMO.config.types.forEach(function (t) { if (t.id === x.id) { t.minutes = parseInt(x.minutes, 10) || t.minutes; if (x.perGuest !== '' && x.perGuest != null) t.perGuest = parseInt(x.perGuest, 10) || 0; } }); }); DEMO.noVisitZips = body.noVisitZips; DEMO.noVisitBeyondMin = parseInt(body.noVisitBeyondMin, 10) || 0; }
       return res({ ok: true, version: 'demo', types: DEMO.config.types.filter(function (t) { return t.mode !== 'info'; }).map(function (t) { return { id: t.id, name: t.name, mode: t.mode, minutes: t.minutes, perGuest: t.perGuest || 0, askGuests: !!t.askGuests, active: true }; }), noVisitZips: DEMO.noVisitZips || '', noVisitBeyondMin: DEMO.noVisitBeyondMin || 0 });
     }
-    if (/^(agenda|admincancel|adminmove|approve|plans|saveplan|savetemplate)$/.test(body.op)) return res(demoAdmin(body));
+    if (/^(agenda|admincancel|adminmove|approve|plans|saveplan|savetemplate|closerequest|results|outcome)$/.test(body.op)) return res(demoAdmin(body));
     res({ ok: false, error: 'demo' });
   }, 400); });
   return fetch(BRIDGE, { method: 'POST', body: JSON.stringify(body), headers: { 'Content-Type': 'text/plain;charset=utf-8' } }).then(function (r) { return r.json(); });
@@ -119,7 +119,12 @@ function demoAdmin(body) {
     return { ok: true, days: days, week: X.week, zones: ['Santa Cruz County', 'South Bay', 'Peninsula', 'Tri-Valley', 'East Bay', 'Monterey'], earliest: '9:00', doneBy: '18:00', zoomOn: true };
   }
   if (!X.plans[addDays(10)]) X.plans[addDays(10)] = { mode: 'event', start: '11:00', end: '19:00', venue: 'Stoneridge Mall', offer: [] };
-  if (body.op === 'agenda') return { ok: true, today: addDays(0), bookings: X.bookings, requests: X.requests };
+  if (!X.callbacks) X.callbacks = [{ id: 'rq-1', created: addDays(-1), name: 'Nora Nofit', phone: '5557771212', email: 'nora@example.com', zip: '94526', wanted: 'Service and Sales Event Near You', when: 'Saturday mornings', commandCenter: '', text: 'Hi Nora, it\'s Carlo with Cutco. You asked about a time on my booking page. What day works for you?' }];
+  if (!X.results) X.results = [['bk-r1', 0, 540, 'Ann Able', '', ''], ['bk-r2', 0, 585, 'Bob Baker', '', ''], ['bk-r3', -1, 660, 'Cy Cole', 'Showed', 420], ['bk-r4', -1, 705, 'Dee Dunn', 'No-show', ''], ['bk-r5', -1, 750, 'Eve Evans', 'Showed', '']].map(function (r) { return { id: r[0], date: addDays(r[1]), dayLabel: pretty(addDays(r[1])), start: r[2], clock: hm12(r[2]), type: 'Service and Sales Event Near You', name: r[3], phone: '5552014477', venue: 'Stoneridge Mall', outcome: r[4], sold: r[5] }; });
+  if (body.op === 'agenda') return { ok: true, today: addDays(0), bookings: X.bookings, requests: X.requests, callbacks: X.callbacks, commandCenterOn: false };
+  if (body.op === 'closerequest') { X.callbacks = X.callbacks.filter(function (c) { return c.id !== body.id; }); return { ok: true }; }
+  if (body.op === 'results') return { ok: true, today: addDays(0), rows: X.results };
+  if (body.op === 'outcome') { var rr = X.results.filter(function (x) { return x.id === body.bookingId; })[0]; rr.outcome = body.outcome === 'showed' ? 'Showed' : body.outcome === 'noshow' ? 'No-show' : ''; if (body.sold !== undefined) rr.sold = body.sold === '' ? '' : parseFloat(String(body.sold).replace(/[$,]/g, '')); if (body.outcome === 'noshow') rr.sold = ''; return { ok: true, outcome: rr.outcome, sold: rr.sold }; }
   if (body.op === 'admincancel') { X.bookings = X.bookings.filter(function (b) { return b.id !== body.bookingId; }); return { ok: true, emailed: body.sendEmail !== false }; }
   if (body.op === 'adminmove') { var b = X.bookings.filter(function (x) { return x.id === body.bookingId; })[0]; if (/^12:00/.test(body.start) && !body.force) return { ok: false, conflict: true, with: ['Lunch (12:00 PM to 1:00 PM)'], error: 'That time overlaps Lunch (12:00 PM to 1:00 PM)' };
     var st = body.start.split(':'), len = b.end - b.start; b.date = body.date; b.dayLabel = pretty(body.date); b.start = (+st[0]) * 60 + (+st[1]); b.end = b.start + len; b.clock = b.time = hm12(b.start); X.bookings.sort(function (a, c) { return a.date < c.date ? -1 : a.date > c.date ? 1 : a.start - c.start; }); return { ok: true, when: b.dayLabel + ', ' + b.clock, emailed: body.sendEmail !== false, clash: [] }; }
@@ -244,13 +249,14 @@ var MODE_NAME = { route: 'Field day', desk: 'Home office', event: 'Event', close
 function backRow(extra) { return '<div class="row">' + (extra || '') + '<button class="btn quiet" id="toMenuX" type="button">Back to menu</button></div>'; }
 function wireBack() { var b = document.getElementById('toMenuX'); if (b) b.addEventListener('click', home); }
 function needEngine(res, title) {
-  show('<h1>' + esc(title) + '</h1><p class="err">' + esc(res && res.error === 'unknown op' ? 'The Booking Engine needs its v1.5 update before this screen works.' : ((res && res.error) || 'Could not reach the engine.')) + '</p>' + backRow());
+  show('<h1>' + esc(title) + '</h1><p class="err">' + esc(res && res.error === 'unknown op' ? 'The Booking Engine needs its latest update before this screen works.' : ((res && res.error) || 'Could not reach the engine.')) + '</p>' + backRow());
   wireBack();
 }
 function home() {
   show('<h1>Booking Center</h1><div class="menu">' +
     '<button class="item" id="mSched"><div class="t"><span>My schedule</span><span class="pill" id="nSched" hidden></span></div><div class="d" id="dSched">What is booked, with Text, Call and Email ready to send</div></button>' +
     '<button class="item" id="mWait"><div class="t"><span>Waiting for you</span><span class="pill" id="nWait" hidden></span></div><div class="d" id="dWait">Requests from customers who are a drive away</div></button>' +
+    '<button class="item" id="mRes"><div class="t"><span>Results</span></div><div class="d">Who showed and what you sold, appointment by appointment</div></button>' +
     '<button class="item" id="mBook"><div class="t"><span>Book for someone</span></div><div class="d">Put an appointment on the calendar yourself</div></button>' +
     '<button class="item" id="mPlan"><div class="t"><span>Day planner</span></div><div class="d">Open or close a day and choose what it offers</div></button>' +
     '<button class="item" id="mSet"><div class="t"><span>Settings</span></div><div class="d">Appointment lengths, zip codes, reminder wording</div></button>' +
@@ -258,16 +264,18 @@ function home() {
   document.getElementById('mSched').addEventListener('click', function () { scheduleScreen(); });
   document.getElementById('mWait').addEventListener('click', function () { requestsScreen(); });
   document.getElementById('mBook').addEventListener('click', function () { form(); });
+  document.getElementById('mRes').addEventListener('click', function () { resultsScreen(); });
   document.getElementById('mPlan').addEventListener('click', function () { plannerScreen(); });
   document.getElementById('mSet').addEventListener('click', function () { settingsScreen(); });
   post({ op: 'agenda' }).then(function (a) {
     if (!a.ok || !document.getElementById('nSched')) return;
     AG = a;
-    var n = a.bookings.length, w = a.requests.length, ns = document.getElementById('nSched'), nw = document.getElementById('nWait');
+    var cbs = a.callbacks || [];
+    var n = a.bookings.length, w = a.requests.length + cbs.length, ns = document.getElementById('nSched'), nw = document.getElementById('nWait');
     ns.textContent = n + ' booked'; ns.hidden = false;
     if (n) document.getElementById('dSched').textContent = 'Next: ' + a.bookings[0].name + ', ' + a.bookings[0].dayLabel + ' at ' + a.bookings[0].clock;
-    if (w) { nw.textContent = w + ' waiting'; nw.hidden = false; document.getElementById('mWait').classList.add('hot'); document.getElementById('dWait').textContent = 'Pick a time for ' + a.requests.map(function (r) { return r.name.split(' ')[0]; }).join(', '); }
-    else document.getElementById('dWait').textContent = 'Nothing waiting. Requests from customers who are a drive away land here.';
+    if (w) { nw.textContent = w + ' waiting'; nw.hidden = false; document.getElementById('mWait').classList.add('hot'); document.getElementById('dWait').textContent = (a.requests.length ? 'Pick a time for ' + a.requests.map(function (r) { return r.name.split(' ')[0]; }).join(', ') + '. ' : '') + (cbs.length ? 'Call back ' + cbs.map(function (r) { return String(r.name).split(' ')[0]; }).join(', ') + '.' : ''); }
+    else document.getElementById('dWait').textContent = 'Nothing waiting. Requests and call-backs land here.';
   }).catch(function () {});
 }
 function smsHref(b) { return 'sms:+1' + b.phone + '?&body=' + encodeURIComponent(b.text || ''); }
@@ -281,7 +289,7 @@ function bookingCard(b, acts) {
   if (b.guests) extra.push('Guests expected: ' + b.guests);
   for (var k in (b.answers || {})) extra.push(k + ': ' + b.answers[k]);
   return '<div class="card"><div class="when">' + esc(hm12(b.start) + ' to ' + hm12(b.end)) + ' · ' + esc(b.type) + '</div><div class="who">' + esc(b.name) + '</div>' +
-    '<div class="muted small">' + esc(b.where || '') + '</div>' + (extra.length ? '<div class="muted small">' + esc(extra.join(' · ')) + '</div>' : '') + '<div class="acts">' + acts + '</div></div>';
+    '<div class="muted small">' + esc(b.where || '') + '</div>' + (extra.length ? '<div class="muted small">' + esc(extra.join(' · ')) + '</div>' : '') + (b.commandCenter && b.commandCenter !== 'pending' ? '<div class="muted small">' + esc(b.commandCenter) + '</div>' : '') + '<div class="acts">' + acts + '</div></div>';
 }
 function scheduleScreen(msg) {
   show('<p class="muted">Loading your schedule</p>');
@@ -344,12 +352,24 @@ function requestsScreen(msg) {
     AG = a;
     var html = '<h1>Waiting for you</h1>' + (msg ? '<p class="ok">' + esc(msg) + '</p>' : '') +
       '<p class="muted">These customers are far enough away that they picked a few times instead of booking one. Confirm the one that suits your route and they get the confirmation email.</p>';
-    if (!a.requests.length) html += '<p class="muted">Nothing is waiting on you.</p>';
+    var cbs = a.callbacks || [];
+    if (!a.requests.length && !cbs.length) html += '<p class="muted">Nothing is waiting on you.</p>';
     a.requests.forEach(function (r, i) {
       html += '<div class="card"><div class="who">' + esc(r.name) + '</div><div class="when">' + esc(r.type) + '</div><div class="muted small">' + esc(r.where || r.zip || '') + '</div><div class="acts">' +
         r.choices.map(function (c, k) { return '<button class="sbtn go" data-ok="' + i + ':' + k + '">Confirm ' + esc(c.label) + '</button>'; }).join('') + '</div><div class="acts">' + contactBtns(r) + '<button class="sbtn warn" data-no="' + i + '">Decline</button></div></div>';
     });
+    if (cbs.length) {
+      html += '<h2>Asked for a call back</h2><p class="muted small">These people found no time that worked and left their number.</p>';
+      cbs.forEach(function (c, i) {
+        html += '<div class="card"><div class="who">' + esc(c.name) + '</div><div class="when">' + esc(c.wanted || '') + '</div><div class="muted small">' + esc((c.when ? 'Works for them: ' + c.when + ' · ' : '') + (c.zip ? 'Zip ' + c.zip + ' · ' : '') + 'asked ' + c.created) + '</div>' +
+          (c.commandCenter ? '<div class="muted small">' + esc(c.commandCenter) + '</div>' : '') + '<div class="acts">' + contactBtns({ phone: c.phone, email: c.email, text: c.text, emailSubject: 'Finding you a time', emailBody: c.text }) + '<button class="sbtn" data-cb="' + i + '">Done</button></div></div>';
+      });
+    }
     show(html + backRow()); wireBack();
+    Array.prototype.forEach.call(document.querySelectorAll('[data-cb]'), function (el2) { el2.addEventListener('click', function () {
+      el2.disabled = true;
+      post({ op: 'closerequest', id: cbs[+el2.getAttribute('data-cb')].id }).then(function (res) { requestsScreen(res.ok ? 'Marked ' + cbs[+el2.getAttribute('data-cb')].name + ' as handled.' : (res.error || 'Could not update it.')); }).catch(function () { requestsScreen('Could not reach the engine.'); });
+    }); });
     Array.prototype.forEach.call(document.querySelectorAll('[data-ok]'), function (el2) { el2.addEventListener('click', function () {
       var p = el2.getAttribute('data-ok').split(':'), r = a.requests[+p[0]];
       el2.disabled = true; el2.textContent = 'Confirming';
@@ -367,6 +387,45 @@ function declineScreen(r) {
   document.getElementById('dcGo').addEventListener('click', function () {
     post({ op: 'approve', bookingId: r.id, decline: true, note: document.getElementById('dcNote').value.trim() }).then(function (res) { requestsScreen(res.ok ? 'Declined ' + r.name + '. They have been emailed.' : (res.error || 'Could not decline it.')); }).catch(function () { requestsScreen('Could not reach the engine.'); });
   });
+}
+/* ── Results: who showed and what sold ── */
+function money(n) { n = Number(n || 0); return '$' + n.toLocaleString('en-US', { minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 }); }
+function resultsScreen(msg) {
+  show('<p class="muted">Loading results</p>');
+  post({ op: 'results' }).then(function (r) {
+    if (!r.ok) return needEngine(r, 'Results');
+    var html = '<h1>Results</h1>' + (msg ? '<p class="ok">' + esc(msg) + '</p>' : '') + '<p class="muted">Today and the last three weeks. Tap Showed or No-show, and type what you sold.</p>';
+    if (!r.rows.length) html += '<p class="muted">No appointments yet in that stretch.</p>';
+    var byDay = {}, order = [];
+    r.rows.forEach(function (x, i) { x._i = i; if (!byDay[x.date]) { byDay[x.date] = []; order.push(x.date); } byDay[x.date].push(x); });
+    order.forEach(function (d) {
+      var list = byDay[d], showed = list.filter(function (x) { return x.outcome === 'Showed'; }).length, noshow = list.filter(function (x) { return x.outcome === 'No-show'; }).length, sold = list.reduce(function (a, x) { return a + (Number(x.sold) || 0); }, 0);
+      html += '<h2>' + esc(list[0].dayLabel) + (d === r.today ? ' · today' : '') + (list[0].venue ? ' · ' + esc(list[0].venue) : '') + '</h2>' +
+        '<p class="muted small" style="margin-top:-4px">' + list.length + ' booked · ' + showed + ' showed · ' + noshow + ' no-show · ' + esc(money(sold)) + ' sold</p>';
+      list.forEach(function (x) {
+        html += '<div class="card"><div class="when">' + esc(x.clock) + ' · ' + esc(x.type) + '</div><div class="who">' + esc(x.name) + '</div><div class="acts">' +
+          '<button class="sbtn' + (x.outcome === 'Showed' ? ' go' : '') + '" data-out="' + x._i + ':showed">Showed</button>' +
+          '<button class="sbtn' + (x.outcome === 'No-show' ? ' warn' : '') + '" data-out="' + x._i + ':noshow">No-show</button>' +
+          '<span style="display:inline-flex;align-items:center;gap:6px;flex:1 1 150px"><span class="muted small">Sold $</span><input inputmode="decimal" data-sold="' + x._i + '" value="' + esc(x.sold === '' || x.sold == null ? '' : x.sold) + '" style="padding:7px 10px" placeholder="0"></span>' +
+          '<button class="sbtn" data-save="' + x._i + '">Save</button></div></div>';
+      });
+    });
+    show(html + backRow()); wireBack();
+    function send(x, outcome, sold) {
+      var body = { op: 'outcome', bookingId: x.id, outcome: outcome };
+      if (sold !== undefined) body.sold = sold;
+      post(body).then(function (res) { resultsScreen(res.ok ? x.name + ': ' + (res.outcome || 'cleared') + (res.sold !== '' && res.sold != null ? ', ' + money(res.sold) + ' sold' : '') + '.' : (res.error || 'Could not save.')); }).catch(function () { resultsScreen('Could not reach the engine.'); });
+    }
+    Array.prototype.forEach.call(document.querySelectorAll('[data-out]'), function (el2) { el2.addEventListener('click', function () {
+      var p = el2.getAttribute('data-out').split(':'), x = r.rows[+p[0]], want = p[1] === 'showed' ? 'Showed' : 'No-show';
+      var typed = document.querySelector('[data-sold="' + p[0] + '"]').value.trim();
+      send(x, x.outcome === want ? '' : p[1], p[1] === 'showed' && x.outcome !== want ? typed : undefined);
+    }); });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-save]'), function (el2) { el2.addEventListener('click', function () {
+      var i = el2.getAttribute('data-save'), x = r.rows[+i];
+      send(x, 'showed', document.querySelector('[data-sold="' + i + '"]').value.trim());
+    }); });
+  }).catch(function () { needEngine(null, 'Results'); });
 }
 /* ── Day planner ── */
 function offerText(mode, offer) {

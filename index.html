@@ -203,7 +203,15 @@ function start() {
     go(typeScreen);
   }).catch(function () { fail('The booking page could not reach the calendar. Check your connection and try again.', start); });
 }
+/* v1.6: leaving the form (change, Back) lets the held time go at once, so it is
+   free for someone else and nobody can sit on a row of times by re-picking. */
+function releaseHold() {
+  var h = S.hold; S.hold = null;
+  if (!h || !h.bookingId || demo) return;
+  try { post('release', { bookingId: h.bookingId }).catch(function () {}); } catch (e) {}
+}
 function typeScreen() {
+  releaseHold();
   S.type = null; S.intent = null; S.menu = null; S.day = null; S.win = null; S.choices = []; stack = []; S.current = typeScreen;
   receipt([]);
   var html = '<h1>Schedule your time with Cutco Carlo</h1><p class="muted">Choose what you\'re here for, add your zip, pick a time. Three short steps.</p><div class="choices">' + INTENTS.map(function (i) {
@@ -219,6 +227,7 @@ function pickIntent(i) {
 function intentReceipt() { return S.intent ? [{ k: 'Here for', v: S.intent.t, back: typeScreen }] : []; }
 /* zip first, then the menu of what is really open for that zip */
 function zipScreen() {
+  releaseHold();
   S.current = zipScreen;
   receipt(intentReceipt());
   var why = S.intent.id === 'gifts' ? 'Let\'s start with where you\'re located, and then I\'ll show you which days I\'m near your office.' : S.intent.id === 'shop' ? 'Let\'s start with where you\'re located, and then I\'ll show you which days I\'m in your area.' : 'Let\'s start with where you\'re located, and then I\'ll show you which days I\'m in your area and the event closest to you.';
@@ -241,6 +250,7 @@ function perStep() { if (S.type && (S.type.mode === 'desk' || S.type.mode === 'a
 function perTimes() { if (S.type && S.type.mode === 'home' && S.day && S.day.tier === 3) return S.cfg.openDayPerPage || 3; return perStep(); }
 function typeById(id) { return S.cfg.types.filter(function (t) { return t.id === id; })[0]; }
 function menuScreen(showFallback) {
+  releaseHold();
   S.current = menuScreen;
   receipt(intentReceipt().concat([{ k: 'Zip', v: S.zip, back: zipScreen }]));
   var items = S.menu.types.filter(function (m) { return showFallback ? (m.hidden || m.role === 'always') && !m.info : !m.hidden; });
@@ -319,6 +329,7 @@ function loadDays() {
   }).catch(function () { fail('Could not reach the calendar right now.', loadDays); });
 }
 function daysScreen() {
+  releaseHold();
   S.current = daysScreen; receipt(baseReceipt());
   var per = perStep();
   if (!S.days.length) return noneScreen();
@@ -347,6 +358,7 @@ function exhausted() {
   go(function () { noneScreen(true); });
 }
 function windowsScreen() {
+  releaseHold();
   S.current = windowsScreen;
   var r = baseReceipt(); r.push({ k: 'Day', v: S.day.label, back: daysScreen }); receipt(r);
   var per = perTimes(), all = S.day.windows || [];
@@ -375,6 +387,7 @@ function farChoice() {
 function holdAndForm() {
   S.current = holdAndForm;
   var r = baseReceipt(); if (!S.far) r.push({ k: 'When', v: S.day.label + ', ' + S.win.label.replace(/^around /, ''), back: windowsScreen }); else S.choices.forEach(function (c, i) { r.push({ k: 'Option ' + 'ABC'.charAt(i), v: c.label }); }); receipt(r);
+  releaseHold();
   loading(S.far ? 'Saving your options' : 'Holding that time for you');
   post('hold', { type: S.type.id, zip: S.zip, date: S.day.date, start: S.win.s, guests: S.guests, campaign: campaign }).then(function (res) {
     if (!res.ok) {
@@ -429,6 +442,7 @@ function formScreen() {
   });
 }
 function doneScreen(res, name) {
+  S.hold = null;
   receipt([]); stack = []; S.current = null;
   if (res.requested) { show('<h1>Got it, ' + esc(name.split(' ')[0]) + '</h1><p>I will confirm one of your options within ' + res.confirmWithinDays + ' days' + (S.gaveEmail ? ', by email' : ', by text') + '. If another day would suit you better in the meantime, just text me.</p><div class="row"><a class="btn" href="sms:1' + digits(S.cfg.phone) + '">Text Carlo</a><button class="btn quiet" id="again">Book another time</button></div>', { noBack: true }); return wireAgain(); }
   var ics = makeIcs(res);
