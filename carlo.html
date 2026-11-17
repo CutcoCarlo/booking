@@ -101,7 +101,7 @@ function post(body) {
       if (body.op === 'savesettings') { (body.types || []).forEach(function (x) { DEMO.config.types.forEach(function (t) { if (t.id === x.id) { t.minutes = parseInt(x.minutes, 10) || t.minutes; if (x.perGuest !== '' && x.perGuest != null) t.perGuest = parseInt(x.perGuest, 10) || 0; } }); }); DEMO.noVisitZips = body.noVisitZips; DEMO.noVisitBeyondMin = parseInt(body.noVisitBeyondMin, 10) || 0; }
       return res({ ok: true, version: 'demo', types: DEMO.config.types.filter(function (t) { return t.mode !== 'info'; }).map(function (t) { return { id: t.id, name: t.name, mode: t.mode, minutes: t.minutes, perGuest: t.perGuest || 0, askGuests: !!t.askGuests, active: true }; }), noVisitZips: DEMO.noVisitZips || '', noVisitBeyondMin: DEMO.noVisitBeyondMin || 0 });
     }
-    if (/^(agenda|admincancel|adminmove|approve|plans|saveplan|savetemplate|applyweek|clearweek|closerequest|results|outcome)$/.test(body.op)) return res(demoAdmin(body));
+    if (/^(agenda|admincancel|adminmove|approve|plans|saveplan|savetemplate|saveevent|applyweek|clearweek|closerequest|results|outcome)$/.test(body.op)) return res(demoAdmin(body));
     res({ ok: false, error: 'demo' });
   }, 400); });
   return fetch(BRIDGE, { method: 'POST', body: JSON.stringify(body), headers: { 'Content-Type': 'text/plain;charset=utf-8' } }).then(function (r) { return r.json(); });
@@ -126,7 +126,8 @@ function demoAdmin(body) {
   function plans() {
     var days = [];
     for (var i = 0; i < 42; i++) { var ds = addDays(i), p = ds.split('-'), dow = new Date(+p[0], +p[1] - 1, +p[2]).getDay(), o = X.plans[ds] || { mode: 'closed' }, d = shape(o);
-      d.date = ds; d.label = pretty(ds); d.dow = dow; d.note = o.note || ''; d.venue = o.venue || ''; d.custom = !!X.plans[ds]; d.booked = X.bookings.filter(function (b) { return b.date === ds; }).length; d.monday = mondayOf(ds); d.standard = shape(X.week[dow]);
+      d.date = ds; d.label = pretty(ds); d.dow = dow; d.note = o.note || ''; d.venue = o.venue || '';
+      if (o.mode === 'event') d.event = o.event || { venue: o.venue || '', address: '1 Stoneridge Mall Rd, Pleasanton, CA 94588', findMe: '', slotMin: 45, breakStart: '', breakMin: 0, blackouts: [], eventId: 'stoneridge-demo', link: 'https://cutcocarlo.github.io/booking/?ev=stoneridge-demo' }; d.custom = !!X.plans[ds]; d.booked = X.bookings.filter(function (b) { return b.date === ds; }).length; d.monday = mondayOf(ds); d.standard = shape(X.week[dow]);
       days.push(d); }
     return { ok: true, days: days, week: X.week.map(function (w) { var x = shape(w); x.dow = w.dow; x.name = w.name; return x; }), zones: ['Santa Cruz County', 'South Bay', 'Peninsula', 'Tri-Valley', 'East Bay', 'Monterey'], earliest: '9:00', doneBy: '18:00', zoomOn: true, autoWeek: false, weeksAhead: 6 };
   }
@@ -142,7 +143,10 @@ function demoAdmin(body) {
     var st = body.start.split(':'), len = b.end - b.start; b.date = body.date; b.dayLabel = pretty(body.date); b.start = (+st[0]) * 60 + (+st[1]); b.end = b.start + len; b.clock = b.time = hm12(b.start); X.bookings.sort(function (a, c) { return a.date < c.date ? -1 : a.date > c.date ? 1 : a.start - c.start; }); return { ok: true, when: b.dayLabel + ', ' + b.clock, emailed: body.sendEmail !== false, clash: [] }; }
   if (body.op === 'approve') { var r = X.requests.filter(function (x) { return x.id === body.bookingId; })[0]; X.requests = X.requests.filter(function (x) { return x !== r; }); if (body.decline) return { ok: true, declined: true };
     var c = r.choices[body.choice || 0]; r.status = 'Confirmed'; r.date = c.date; r.dayLabel = pretty(c.date); r.start = c.s; r.end = c.s + 90; r.clock = r.time = hm12(c.s); X.bookings.push(r); return { ok: true, confirmed: true, when: c.label }; }
-  if (body.op === 'saveplan') { if (X.plans[body.date] && X.plans[body.date].mode === 'event') return { ok: false, error: 'That is an event day. Event days are set up on the Day Plans tab of the Booking Center sheet.' }; if (body.mode === 'default') delete X.plans[body.date]; else X.plans[body.date] = { mode: body.mode === 'closed' ? 'closed' : 'open', sections: body.sections, zone: body.zone, note: body.note }; return plans(); }
+  if (body.op === 'saveevent') { if (!body.venue && !body.address) return { ok: false, error: 'give the event a venue name or an address' }; var eid = (body.eventId || (body.venue || 'event').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '-demo');
+    X.plans[body.date] = { mode: 'event', start: body.start, end: body.end, venue: body.venue, note: body.note, event: { venue: body.venue || '', address: body.address || '', findMe: body.findMe || '', slotMin: parseInt(body.slotMin, 10) || 45, breakStart: body.breakMin > 0 ? body.breakStart : '', breakMin: parseInt(body.breakMin, 10) || 0, blackouts: body.blackouts || [], eventId: eid, link: 'https://cutcocarlo.github.io/booking/?ev=' + eid } };
+    var pe = plans(); pe.eventId = eid; pe.link = 'https://cutcocarlo.github.io/booking/?ev=' + eid; pe.warn = ''; return pe; }
+  if (body.op === 'saveplan') { if (X.plans[body.date] && X.plans[body.date].mode === 'event' && !body.force) return { ok: false, error: 'That is an event day. Open it in the planner to edit or remove the event.' }; if (body.mode === 'default') delete X.plans[body.date]; else X.plans[body.date] = { mode: body.mode === 'closed' ? 'closed' : 'open', sections: body.sections, zone: body.zone, note: body.note }; return plans(); }
   if (body.op === 'savetemplate') { var w = X.week[body.dow]; w.mode = body.mode === 'closed' ? 'closed' : 'open'; w.sections = body.sections; return plans(); }
   if (body.op === 'applyweek' || body.op === 'clearweek') { var n = 0; for (var q = 0; q < 7; q++) { var p0 = body.monday.split('-'), dd = new Date(+p0[0], +p0[1] - 1, +p0[2] + q), ds2 = dd.getFullYear() + '-' + String(dd.getMonth() + 1).padStart(2, '0') + '-' + String(dd.getDate()).padStart(2, '0'), std = X.week[dd.getDay()];
       if (ds2 < addDays(0)) continue;
@@ -469,7 +473,7 @@ function plannerScreen(msg, fresh) {
     PL = p;
     var html = '<h1>Day planner</h1>' + (msg ? '<p class="ok">' + esc(msg) + '</p>' : '') +
       '<p class="muted">' + (p.autoWeek ? 'Every day follows your standard week unless you change it here. Tap a day to change it.' : 'Customers can only book a day you have opened. Open a whole week with one tap, or tap a day to set it yourself. Event days are always open.') + '</p>' +
-      '<div class="row" style="margin-top:6px"><button class="btn ghost" id="plWeek">My standard week</button></div>';
+      '<div class="row" style="margin-top:6px"><button class="btn ghost" id="plWeek">My standard week</button><button class="btn ghost" id="plEvent">Add an event</button></div>';
     var weeks = [], byWeek = {};
     p.days.forEach(function (d, i) { d._i = i; var k = d.monday || d.date; if (!byWeek[k]) { byWeek[k] = []; weeks.push(k); } byWeek[k].push(d); });
     weeks.forEach(function (k) {
@@ -488,6 +492,7 @@ function plannerScreen(msg, fresh) {
     html += '<p class="muted small" style="margin-top:18px">The planner always shows the next ' + esc(p.weeksAhead || 6) + ' weeks. A new day appears at the bottom every morning.</p>';
     show(html + backRow()); wireBack();
     document.getElementById('plWeek').addEventListener('click', weekScreen);
+    document.getElementById('plEvent').addEventListener('click', function () { eventScreen(null); });
     Array.prototype.forEach.call(document.querySelectorAll('[data-day]'), function (el2) { el2.addEventListener('click', function () { dayScreen(p.days[+el2.getAttribute('data-day')]); }); });
     function weekOp(op, k, btn, done) {
       btn.disabled = true; btn.textContent = 'Working';
@@ -579,17 +584,15 @@ function readEditor() {
   return out;
 }
 function dayScreen(d) {
-  if (d.mode === 'event') {
-    show('<h1>' + esc(d.label) + '</h1><p><span class="pill event">Event</span> ' + esc(d.venue || '') + ', ' + esc(t12(d.start) + ' to ' + t12(d.end)) + '.</p><p class="muted">Event days carry extra details (venue, slot length, breaks), so they are set up on the Day Plans tab of the Booking Center sheet, or just ask Claude to add or change one.</p><div class="row"><button class="btn quiet" id="dyBack">Back to the planner</button></div>');
-    document.getElementById('dyBack').addEventListener('click', function () { plannerScreen(); });
-    return;
-  }
+  if (d.mode === 'event') return eventScreen(d);
   var unopened = !PL.autoWeek && !d.custom;
   /* an unopened day starts from what your standard week says for that weekday */
   var seed = unopened && d.standard && d.standard.sections && d.standard.sections.length ? { mode: 'open', sections: d.standard.sections, zone: '', note: '' } : unopened ? { mode: 'open', sections: [{ start: PL.earliest, end: PL.doneBy, mode: 'route', offer: [] }], zone: '', note: '' } : d;
   show('<h1>' + esc(d.label) + '</h1><p class="muted">' + (unopened ? 'Not opened: customers cannot book this day. Set it below and save to open it.' : d.custom ? (PL.autoWeek ? 'You set this day by hand.' : 'Open. Customers can book it as set below.') : 'Following your standard ' + esc(d.label.split(' ')[0]) + '.') + (d.booked ? ' ' + d.booked + ' already booked; changing the day does not move or cancel them.' : '') + '</p>' + planEditor(seed, false) +
-    '<div class="row"><button class="btn" id="dySave">' + (unopened ? 'Open this day' : 'Save this day') + '</button>' + (d.custom ? '<button class="btn ghost" id="dyReset">' + (PL.autoWeek ? 'Back to my standard week' : 'Close this day') + '</button>' : '') + '<button class="btn quiet" id="dyBack">Cancel</button></div><p class="err" id="dyErr" hidden></p>');
+    '<div class="row"><button class="btn" id="dySave">' + (unopened ? 'Open this day' : 'Save this day') + '</button>' + (d.custom ? '<button class="btn ghost" id="dyReset">' + (PL.autoWeek ? 'Back to my standard week' : 'Close this day') + '</button>' : '') + '<button class="btn quiet" id="dyBack">Cancel</button></div><p class="err" id="dyErr" hidden></p>' +
+    '<p class="muted small" style="margin-top:18px">Running an event at a venue this day instead? <button class="sbtn" id="dyEvent" type="button">Make it an event day</button></p>');
   wireEditor(seed);
+  document.getElementById('dyEvent').addEventListener('click', function () { eventScreen(null, { date: d.date }); });
   document.getElementById('dyBack').addEventListener('click', function () { plannerScreen(); });
   function send(body, done) {
     body.op = 'saveplan'; body.date = d.date;
@@ -601,6 +604,96 @@ function dayScreen(d) {
     send(v, (v.mode === 'closed' ? 'Closed ' : 'Saved ') + d.label + '.');
   });
   var rs = document.getElementById('dyReset'); if (rs) rs.addEventListener('click', function () { send({ mode: 'default' }, PL.autoWeek ? d.label + ' is back to your standard week.' : d.label + ' is closed again.'); });
+}
+/* ── Events: a venue day with fixed appointment slots ── */
+var EVB = [];
+function drawBlackouts() {
+  var box = document.getElementById('evBlk'); if (!box) return;
+  box.innerHTML = EVB.map(function (b, i) {
+    return '<div style="display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end;margin-top:8px"><div><label for="evBs' + i + '">No appointments from</label><input id="evBs' + i + '" type="time" step="900" value="' + esc(b.start) + '"></div><div><label for="evBe' + i + '">Until</label><input id="evBe' + i + '" type="time" step="900" value="' + esc(b.end) + '"></div><button class="sbtn warn" type="button" data-bx="' + i + '" style="margin-bottom:2px">Remove</button></div>';
+  }).join('');
+  Array.prototype.forEach.call(box.querySelectorAll('[data-bx]'), function (b) { b.addEventListener('click', function () { syncBlackouts(); EVB.splice(+b.getAttribute('data-bx'), 1); drawBlackouts(); }); });
+}
+function syncBlackouts() { EVB.forEach(function (b, i) { var a = document.getElementById('evBs' + i), z = document.getElementById('evBe' + i); if (a) b.start = a.value; if (z) b.end = z.value; }); }
+function linkBox(link) {
+  return link ? '<label for="evLink">Booking link for this event</label><input id="evLink" readonly value="' + esc(link) + '"><div class="acts"><button class="sbtn go" id="evCopy" type="button">Copy link</button>' + (navigator.share ? '<button class="sbtn" id="evShare" type="button">Share</button>' : '') + '</div>' : '';
+}
+function wireLink(link, title) {
+  var c = document.getElementById('evCopy'); if (!c) return;
+  c.addEventListener('click', function () {
+    var done = function () { c.textContent = 'Copied'; setTimeout(function () { c.textContent = 'Copy link'; }, 1600); };
+    try { navigator.clipboard.writeText(link).then(done, function () { document.getElementById('evLink').select(); }); } catch (e) { document.getElementById('evLink').select(); }
+  });
+  var sh = document.getElementById('evShare'); if (sh) sh.addEventListener('click', function () { try { navigator.share({ title: title, url: link }); } catch (e) {} });
+}
+function eventScreen(d, seed) {
+  seed = seed || {};
+  var isNew = !(d && d.mode === 'event'), ev = (d && d.event) || seed.event || {};
+  var date = seed.date || (d && d.date) || '';
+  EVB = (ev.blackouts || []).map(function (b) { return { start: pad5(b.start), end: pad5(b.end) }; });
+  show('<h1>' + (isNew ? 'Add an event' : esc(d.label)) + '</h1>' +
+    '<p class="muted">' + (isNew ? 'An event is a day at a venue with back-to-back appointment slots. Customers near it see it under Sharpening, and you get a link that goes straight to it.' : 'Event day.' + (d.booked ? ' ' + d.booked + ' already booked. Their times stay exactly as they are, and no new slot will overlap them.' : '')) + '</p>' +
+    (isNew ? '<label for="evDate">Day</label><input id="evDate" type="date" value="' + esc(date) + '">' : '') +
+    '<label for="evVenue">Venue name</label><input id="evVenue" value="' + esc(ev.venue || '') + '" placeholder="Stoneridge Mall">' +
+    '<label for="evAddr">Address (street, city, zip)</label><input id="evAddr" value="' + esc(ev.address || '') + '" placeholder="1 Stoneridge Mall Rd, Pleasanton, CA 94588">' +
+    '<label for="evFind">Where to find you there (optional)</label><input id="evFind" value="' + esc(ev.findMe || '') + '" placeholder="In front of the MAC store">' +
+    '<div class="two"><div><label for="evStart">First appointment</label><input id="evStart" type="time" step="900" value="' + esc(pad5(seed.start || (d && d.mode === 'event' ? d.start : '') || '10:00')) + '"></div><div><label for="evEnd">Day ends</label><input id="evEnd" type="time" step="900" value="' + esc(pad5(seed.end || (d && d.mode === 'event' ? d.end : '') || '18:00')) + '"></div></div>' +
+    '<label for="evSlot">Minutes per appointment</label><input id="evSlot" inputmode="numeric" value="' + esc(ev.slotMin || 45) + '">' +
+    '<div class="two"><div><label for="evBrk">Your break starts (optional)</label><input id="evBrk" type="time" step="900" value="' + esc(pad5(ev.breakStart || '')) + '"></div><div><label for="evBrkMin">Break minutes</label><input id="evBrkMin" inputmode="numeric" value="' + esc(ev.breakMin || 0) + '"></div></div>' +
+    '<label style="margin-top:16px">Stretches with no appointments (optional)</label><p class="muted small" style="margin:0">For example the mall rush, when you would rather take walk-ups.</p><div id="evBlk"></div>' +
+    '<div class="acts" style="margin-top:8px"><button class="sbtn" id="evAddBlk" type="button">Add a blocked stretch</button></div>' +
+    '<label for="evNote">Note to yourself (optional)</label><input id="evNote" value="' + esc((d && d.mode === 'event' && d.note) || seed.note || '') + '">' +
+    '<label for="evId">Link code (optional; days with the same code share one booking link)</label><input id="evId" autocapitalize="none" value="' + esc(ev.eventId || '') + '" placeholder="made from the venue name if left blank">' +
+    (isNew ? '' : linkBox(ev.link)) +
+    '<div class="row"><button class="btn" id="evSave">' + (isNew ? 'Add this event day' : 'Save event day') + '</button>' + (isNew ? '' : '<button class="btn ghost" id="evMore">Add another day of this event</button>') + '<button class="btn quiet" id="evBack">Cancel</button></div>' +
+    (isNew ? '' : '<div class="row"><button class="sbtn warn" id="evRemove" type="button">Remove this event day</button></div>') + '<p class="err" id="evErr" hidden></p>');
+  drawBlackouts(); wireLink(ev.link, ev.venue || 'Cutco event');
+  document.getElementById('evBack').addEventListener('click', function () { plannerScreen(); });
+  document.getElementById('evAddBlk').addEventListener('click', function () { syncBlackouts(); EVB.push({ start: '14:00', end: '15:00' }); drawBlackouts(); });
+  function read() {
+    syncBlackouts();
+    var v = function (id) { var e2 = document.getElementById(id); return e2 ? e2.value.trim() : ''; };
+    return { op: 'saveevent', date: isNew ? v('evDate') : d.date, venue: v('evVenue'), address: v('evAddr'), findMe: v('evFind'), start: v('evStart'), end: v('evEnd'), slotMin: v('evSlot'),
+      breakStart: v('evBrk'), breakMin: v('evBrk') ? (v('evBrkMin') || '0') : '0', blackouts: EVB.map(function (b) { return { start: b.start, end: b.end }; }), note: v('evNote'), eventId: v('evId') };
+  }
+  var errEl = document.getElementById('evErr'); function err(m) { errEl.textContent = m; errEl.hidden = false; }
+  document.getElementById('evSave').addEventListener('click', function () {
+    var b = read();
+    if (!b.date) return err('Pick the day.');
+    if (!b.venue && !b.address) return err('Give the event a venue name or an address.');
+    if (!b.start || !b.end || b.end <= b.start) return err('The day should end after the first appointment.');
+    var btn = document.getElementById('evSave'); btn.disabled = true; btn.textContent = 'Saving';
+    post(b).then(function (r) {
+      if (!r.ok) { btn.disabled = false; btn.textContent = isNew ? 'Add this event day' : 'Save event day'; return err(r.error || 'Could not save the event.'); }
+      PL = r; eventSavedScreen(r, b);
+    }).catch(function () { btn.disabled = false; btn.textContent = isNew ? 'Add this event day' : 'Save event day'; err('Could not reach the engine.'); });
+  });
+  var more = document.getElementById('evMore'); if (more) more.addEventListener('click', function () { anotherDay(read()); });
+  var rm = document.getElementById('evRemove'); if (rm) rm.addEventListener('click', function () { removeEventScreen(d); });
+}
+function nextDate(ds) { var p = ds.split('-'), dt = new Date(+p[0], +p[1] - 1, +p[2] + 1); return dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0'); }
+function anotherDay(b, eventId) {
+  eventScreen(null, { date: nextDate(b.date), start: b.start, end: b.end, note: '', event: { venue: b.venue, address: b.address, findMe: b.findMe, slotMin: b.slotMin, breakStart: b.breakStart, breakMin: b.breakMin, blackouts: b.blackouts, eventId: eventId || b.eventId } });
+}
+function eventSavedScreen(r, b) {
+  var day = (r.days || []).filter(function (x) { return x.date === b.date; })[0];
+  show('<h1>Event saved</h1><p class="ok">' + esc((day ? day.label : b.date) + (b.venue ? ' at ' + b.venue : '')) + ', ' + esc(t12(b.start) + ' to ' + t12(b.end)) + '.</p>' +
+    (r.warn ? '<p class="err">' + esc(r.warn) + '</p>' : '') +
+    '<p class="muted">Customers can book it now. Send them this link and it opens straight on this event.</p>' + linkBox(r.link) +
+    '<div class="row"><button class="btn ghost" id="esMore">Add another day of this event</button><button class="btn quiet" id="esBack">Back to the planner</button></div>');
+  wireLink(r.link, b.venue || 'Cutco event');
+  document.getElementById('esBack').addEventListener('click', function () { plannerScreen('', r); });
+  document.getElementById('esMore').addEventListener('click', function () { anotherDay(b, r.eventId); });
+}
+function removeEventScreen(d) {
+  show('<h1>Remove this event day?</h1><p>' + esc(d.label) + (d.venue ? ' at ' + esc(d.venue) : '') + '. Customers will no longer be able to book it.</p>' +
+    (d.booked ? '<p class="err">' + d.booked + ' already booked that day. Removing the event does not cancel them. Cancel or move each one from My schedule if the event is off.</p>' : '') +
+    '<div class="row"><button class="btn" id="rmGo">Remove the event day</button><button class="btn quiet" id="rmBack">Keep it</button></div><p class="err" id="rmErr" hidden></p>');
+  document.getElementById('rmBack').addEventListener('click', function () { eventScreen(d); });
+  document.getElementById('rmGo').addEventListener('click', function () {
+    post({ op: 'saveplan', date: d.date, mode: 'default', force: true }).then(function (r) { if (r.ok) return plannerScreen('Removed the event on ' + d.label + '.', r); var e2 = document.getElementById('rmErr'); e2.textContent = r.error || 'Could not remove it.'; e2.hidden = false; })
+      .catch(function () { var e3 = document.getElementById('rmErr'); e3.textContent = 'Could not reach the engine.'; e3.hidden = false; });
+  });
 }
 function weekScreen(msg) {
   var html = '<h1>My standard week</h1>' + (typeof msg === 'string' ? '<p class="ok">' + esc(msg) + '</p>' : '') + '<p class="muted">' + (PL.autoWeek ? 'What each weekday offers unless you change a particular date in the planner.' : 'Your usual pattern. Nothing here is open to customers until you tap "Use my standard week" on a week in the planner.') + '</p><div class="menu">';
