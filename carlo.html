@@ -59,7 +59,9 @@
   .item .d { color: var(--ink-2); font-size: 15px; margin-top: 2px; }
   .item.hot { border-color: var(--warn); background: var(--steel-wash); }
   .pill { display: inline-block; font-family: var(--body); font-size: 12.5px; font-weight: 700; padding: 2px 9px; border-radius: 999px; background: var(--steel-wash); color: var(--steel); white-space: nowrap; }
-  .pill.route { background: #F6E9DC; color: #8A4B12; } .pill.closed { background: var(--mist); color: var(--ink-2); } .pill.event { background: #E3F1E6; color: var(--ok); }
+  .pill.route, .pill.mixed { background: #F6E9DC; color: #8A4B12; }
+  .sec { border: 1.5px solid var(--mist); border-radius: var(--r); padding: 12px 14px; margin-top: 10px; }
+  .sec .sech { display: flex; justify-content: space-between; align-items: center; font-weight: 700; } .pill.closed { background: var(--mist); color: var(--ink-2); } .pill.event { background: #E3F1E6; color: var(--ok); }
   @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .pill.route { background: #3A2A1A; color: #E0A463; } :root:not([data-theme="light"]) .pill.event { background: #1E3324; } }
   .card { border: 1.5px solid var(--mist); border-radius: var(--r); padding: 12px 14px; margin: 0 0 10px; }
   .card .when { font-weight: 700; } .card .who { font-family: var(--display); font-weight: 700; font-size: 18px; margin-top: 2px; }
@@ -99,7 +101,7 @@ function post(body) {
       if (body.op === 'savesettings') { (body.types || []).forEach(function (x) { DEMO.config.types.forEach(function (t) { if (t.id === x.id) { t.minutes = parseInt(x.minutes, 10) || t.minutes; if (x.perGuest !== '' && x.perGuest != null) t.perGuest = parseInt(x.perGuest, 10) || 0; } }); }); DEMO.noVisitZips = body.noVisitZips; DEMO.noVisitBeyondMin = parseInt(body.noVisitBeyondMin, 10) || 0; }
       return res({ ok: true, version: 'demo', types: DEMO.config.types.filter(function (t) { return t.mode !== 'info'; }).map(function (t) { return { id: t.id, name: t.name, mode: t.mode, minutes: t.minutes, perGuest: t.perGuest || 0, askGuests: !!t.askGuests, active: true }; }), noVisitZips: DEMO.noVisitZips || '', noVisitBeyondMin: DEMO.noVisitBeyondMin || 0 });
     }
-    if (/^(agenda|admincancel|adminmove|approve|plans|saveplan|savetemplate|closerequest|results|outcome)$/.test(body.op)) return res(demoAdmin(body));
+    if (/^(agenda|admincancel|adminmove|approve|plans|saveplan|savetemplate|applyweek|clearweek|closerequest|results|outcome)$/.test(body.op)) return res(demoAdmin(body));
     res({ ok: false, error: 'demo' });
   }, 400); });
   return fetch(BRIDGE, { method: 'POST', body: JSON.stringify(body), headers: { 'Content-Type': 'text/plain;charset=utf-8' } }).then(function (r) { return r.json(); });
@@ -112,17 +114,21 @@ function demoAdmin(body) {
   function pretty(ds) { var p = ds.split('-'), d = new Date(+p[0], +p[1] - 1, +p[2]); return ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][d.getDay()] + ' ' + ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getMonth()] + ' ' + d.getDate(); }
   if (!DEMOX) {
     var mk = function (id, n, start, len, type, mode, name, where, extra) { var ds = addDays(n), o = { id: id, status: 'Confirmed', date: ds, dayLabel: pretty(ds), start: start, end: start + len, clock: hm12(start), time: hm12(start), typeId: type, type: type, mode: mode, name: name, phone: '5552014477', email: name.split(' ')[0].toLowerCase() + '@example.com', address: mode === 'home' ? where : '', where: where, zip: '', zone: '', guests: 0, answers: {}, note: '', directions: mode === 'home' ? 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(where) : '', choices: [], text: 'Hi ' + name.split(' ')[0] + ', it\'s Carlo with Cutco. Looking forward to our ' + type + ' on ' + pretty(ds) + ' at ' + hm12(start) + '. Text me here if anything changes.', emailSubject: 'Tomorrow: ' + type, emailBody: 'Hi ' + name.split(' ')[0] + ',\n\nSee you ' + pretty(ds) + ', ' + hm12(start) + '.\n\nCarlo' }; for (var k in (extra || {})) o[k] = extra[k]; return o; };
-    var week = [['Sunday', 'closed'], ['Monday', 'closed'], ['Tuesday', 'desk'], ['Wednesday', 'route'], ['Thursday', 'desk'], ['Friday', 'route'], ['Saturday', 'closed']].map(function (w, i) { return { dow: i, name: w[0], mode: w[1], start: w[1] === 'closed' ? '' : '9:00', end: w[1] === 'closed' ? '' : '18:00', offer: [], zone: '' }; });
+    var week = [['Sunday', 'closed'], ['Monday', 'closed'], ['Tuesday', 'desk'], ['Wednesday', 'route'], ['Thursday', 'desk'], ['Friday', 'route'], ['Saturday', 'closed']].map(function (w, i) { return { dow: i, name: w[0], mode: w[1], start: '9:00', end: '18:00', offer: [], zone: '' }; });
     DEMOX = { bookings: [mk('bk-1', 0, 600, 60, 'In-Home Shopping Visit', 'home', 'Maria Lopez', '18 Birch Lane, Los Gatos, CA 95030', { answers: { interests: 'Sharpening, See what is new' }, guests: 2 }), mk('bk-2', 1, 570, 15, 'Phone Call', 'anywhere', 'Dan Whitfield', 'By phone; I will call you'), mk('bk-3', 3, 855, 45, 'Service and Sales Event Near You', 'venue', 'Laura Burns', '290B Rose St, Danville, CA 94526')],
       requests: [mk('bk-9', 6, 570, 90, 'In-Home Shop and Sharpen Visit', 'home', 'Fay Faraway', '500 B St, Hayward, CA 94541', { status: 'Requested', choices: [{ date: addDays(6), s: 570, label: pretty(addDays(6)) + ', 9:30 AM' }, { date: addDays(8), s: 690, label: pretty(addDays(8)) + ', 11:30 AM' }, { date: addDays(13), s: 810, label: pretty(addDays(13)) + ', 1:30 PM' }] })],
       week: week, plans: {} };
   }
   var X = DEMOX;
+  function mondayOf(ds) { var p = ds.split('-'), d = new Date(+p[0], +p[1] - 1, +p[2]); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+  function shape(o) { var secs = o.mode === 'closed' || o.mode === 'event' ? [] : (o.sections && o.sections.length ? o.sections : [{ start: o.start || '9:00', end: o.end || '18:00', mode: o.mode, offer: o.offer || [] }]); var modes = {}; secs.forEach(function (x) { modes[x.mode] = 1; });
+    return { mode: o.mode === 'event' || o.mode === 'closed' ? o.mode : (modes.route && modes.desk ? 'mixed' : secs[0].mode), start: secs.length ? secs[0].start : (o.start || '9:00'), end: secs.length ? secs[secs.length - 1].end : (o.end || '18:00'), sections: secs, zone: o.zone || '', offer: secs.length === 1 ? secs[0].offer : [] }; }
   function plans() {
     var days = [];
-    for (var i = 0; i < 42; i++) { var ds = addDays(i), p = ds.split('-'), dow = new Date(+p[0], +p[1] - 1, +p[2]).getDay(), o = X.plans[ds] || X.week[dow];
-      days.push({ date: ds, label: pretty(ds), dow: dow, mode: o.mode, start: o.start || '9:00', end: o.end || '18:00', zone: o.zone || '', offer: o.offer || [], note: o.note || '', venue: o.venue || '', custom: !!X.plans[ds], booked: X.bookings.filter(function (b) { return b.date === ds; }).length }); }
-    return { ok: true, days: days, week: X.week, zones: ['Santa Cruz County', 'South Bay', 'Peninsula', 'Tri-Valley', 'East Bay', 'Monterey'], earliest: '9:00', doneBy: '18:00', zoomOn: true };
+    for (var i = 0; i < 42; i++) { var ds = addDays(i), p = ds.split('-'), dow = new Date(+p[0], +p[1] - 1, +p[2]).getDay(), o = X.plans[ds] || { mode: 'closed' }, d = shape(o);
+      d.date = ds; d.label = pretty(ds); d.dow = dow; d.note = o.note || ''; d.venue = o.venue || ''; d.custom = !!X.plans[ds]; d.booked = X.bookings.filter(function (b) { return b.date === ds; }).length; d.monday = mondayOf(ds); d.standard = shape(X.week[dow]);
+      days.push(d); }
+    return { ok: true, days: days, week: X.week.map(function (w) { var x = shape(w); x.dow = w.dow; x.name = w.name; return x; }), zones: ['Santa Cruz County', 'South Bay', 'Peninsula', 'Tri-Valley', 'East Bay', 'Monterey'], earliest: '9:00', doneBy: '18:00', zoomOn: true, autoWeek: false, weeksAhead: 6 };
   }
   if (!X.plans[addDays(10)]) X.plans[addDays(10)] = { mode: 'event', start: '11:00', end: '19:00', venue: 'Stoneridge Mall', offer: [] };
   if (!X.callbacks) X.callbacks = [{ id: 'rq-1', created: addDays(-1), name: 'Nora Nofit', phone: '5557771212', email: 'nora@example.com', zip: '94526', wanted: 'Service and Sales Event Near You', when: 'Saturday mornings', commandCenter: '', text: 'Hi Nora, it\'s Carlo with Cutco. You asked about a time on my booking page. What day works for you?' }];
@@ -136,8 +142,13 @@ function demoAdmin(body) {
     var st = body.start.split(':'), len = b.end - b.start; b.date = body.date; b.dayLabel = pretty(body.date); b.start = (+st[0]) * 60 + (+st[1]); b.end = b.start + len; b.clock = b.time = hm12(b.start); X.bookings.sort(function (a, c) { return a.date < c.date ? -1 : a.date > c.date ? 1 : a.start - c.start; }); return { ok: true, when: b.dayLabel + ', ' + b.clock, emailed: body.sendEmail !== false, clash: [] }; }
   if (body.op === 'approve') { var r = X.requests.filter(function (x) { return x.id === body.bookingId; })[0]; X.requests = X.requests.filter(function (x) { return x !== r; }); if (body.decline) return { ok: true, declined: true };
     var c = r.choices[body.choice || 0]; r.status = 'Confirmed'; r.date = c.date; r.dayLabel = pretty(c.date); r.start = c.s; r.end = c.s + 90; r.clock = r.time = hm12(c.s); X.bookings.push(r); return { ok: true, confirmed: true, when: c.label }; }
-  if (body.op === 'saveplan') { if (X.plans[body.date] && X.plans[body.date].mode === 'event') return { ok: false, error: 'That is an event day. Event days are set up on the Day Plans tab of the Booking Center sheet.' }; if (body.mode === 'default') delete X.plans[body.date]; else X.plans[body.date] = { mode: body.mode, start: body.start, end: body.end, zone: body.zone, offer: body.offer || [], note: body.note }; return plans(); }
-  if (body.op === 'savetemplate') { var w = X.week[body.dow]; w.mode = body.mode; w.start = body.start; w.end = body.end; w.offer = body.offer || []; return plans(); }
+  if (body.op === 'saveplan') { if (X.plans[body.date] && X.plans[body.date].mode === 'event') return { ok: false, error: 'That is an event day. Event days are set up on the Day Plans tab of the Booking Center sheet.' }; if (body.mode === 'default') delete X.plans[body.date]; else X.plans[body.date] = { mode: body.mode === 'closed' ? 'closed' : 'open', sections: body.sections, zone: body.zone, note: body.note }; return plans(); }
+  if (body.op === 'savetemplate') { var w = X.week[body.dow]; w.mode = body.mode === 'closed' ? 'closed' : 'open'; w.sections = body.sections; return plans(); }
+  if (body.op === 'applyweek' || body.op === 'clearweek') { var n = 0; for (var q = 0; q < 7; q++) { var p0 = body.monday.split('-'), dd = new Date(+p0[0], +p0[1] - 1, +p0[2] + q), ds2 = dd.getFullYear() + '-' + String(dd.getMonth() + 1).padStart(2, '0') + '-' + String(dd.getDate()).padStart(2, '0'), std = X.week[dd.getDay()];
+      if (ds2 < addDays(0)) continue;
+      if (body.op === 'applyweek' && !X.plans[ds2] && std.mode !== 'closed') { X.plans[ds2] = { mode: std.mode, sections: std.sections, start: std.start, end: std.end, offer: std.offer || [], note: 'standard week' }; n++; }
+      if (body.op === 'clearweek' && X.plans[ds2] && X.plans[ds2].mode !== 'event') { delete X.plans[ds2]; n++; } }
+    var out = plans(); out.applied = n; out.cleared = n; return out; }
   return plans();
 }
 function hm12(min) { var h = Math.floor(min / 60), m = min % 60, ap = h >= 12 ? 'PM' : 'AM', hh = h % 12 || 12; return hh + ':' + (m < 10 ? '0' : '') + m + ' ' + ap; }
@@ -251,7 +262,7 @@ function settingsScreen(saved) {
 
 /* ════════ v1.5: the control screens ════════ */
 var AG = null, PL = null;
-var MODE_NAME = { route: 'Field day', desk: 'Home office', event: 'Event', closed: 'Closed' };
+var MODE_NAME = { route: 'Field day', desk: 'Home office', mixed: 'Mixed day', event: 'Event', closed: 'Closed' };
 function backRow(extra) { return '<div class="row">' + (extra || '') + '<button class="btn quiet" id="toMenuX" type="button">Back to menu</button></div>'; }
 function wireBack() { var b = document.getElementById('toMenuX'); if (b) b.addEventListener('click', home); }
 function needEngine(res, title) {
@@ -264,7 +275,7 @@ function home() {
     '<button class="item" id="mWait"><div class="t"><span>Waiting for you</span><span class="pill" id="nWait" hidden></span></div><div class="d" id="dWait">Requests from customers who are a drive away</div></button>' +
     '<button class="item" id="mRes"><div class="t"><span>Results</span></div><div class="d">Who showed and what you sold, appointment by appointment</div></button>' +
     '<button class="item" id="mBook"><div class="t"><span>Book for someone</span></div><div class="d">Put an appointment on the calendar yourself</div></button>' +
-    '<button class="item" id="mPlan"><div class="t"><span>Day planner</span></div><div class="d">Open or close a day and choose what it offers</div></button>' +
+    '<button class="item" id="mPlan"><div class="t"><span>Day planner</span></div><div class="d">Open the days you will work and choose what each one offers</div></button>' +
     '<button class="item" id="mSet"><div class="t"><span>Settings</span></div><div class="d">Appointment lengths, zip codes, reminder wording</div></button>' +
     '</div><div class="row"><a class="btn quiet" href="index.html" target="_blank" rel="noopener">Open the customer page</a></div>');
   document.getElementById('mSched').addEventListener('click', function () { scheduleScreen(); });
@@ -443,96 +454,166 @@ function offerText(mode, offer) {
   if (o.indexOf('calls') >= 0) out.push(mode === 'route' ? 'Calls from the car' : 'Calls');
   return out.length ? out.join(', ') : 'Nothing offered';
 }
-function plannerScreen(msg) {
-  show('<p class="muted">Loading the planner</p>');
-  post({ op: 'plans' }).then(function (p) {
-    if (!p.ok) return needEngine(p, 'Day planner');
+function kindName(m) { return m === 'route' ? 'Field' : 'Home office'; }
+function secHours(x) { return t12(x.start) + ' to ' + t12(x.end); }
+/* one line that says what a day (or a weekday of the standard week) looks like */
+function dayLine(d) {
+  var secs = d.sections || [];
+  if (d.mode === 'closed' || !secs.length) return 'Nothing can be booked';
+  if (secs.length === 1) return secHours(secs[0]) + ' · ' + offerText(secs[0].mode, secs[0].offer);
+  return secs.map(function (x) { return secHours(x) + ' ' + kindName(x.mode) + ': ' + offerText(x.mode, x.offer); }).join(' · ');
+}
+var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+function plannerScreen(msg, fresh) {
+  function draw(p) {
     PL = p;
-    var html = '<h1>Day planner</h1>' + (msg ? '<p class="ok">' + esc(msg) + '</p>' : '') + '<p class="muted">Every day follows your normal week unless you change it here. Tap a day to change it.</p>' +
-      '<div class="row" style="margin-top:6px"><button class="btn ghost" id="plWeek">My normal week</button></div>', lastWeek = '';
-    p.days.forEach(function (d, i) {
-      var parts = d.date.split('-'), dt = new Date(+parts[0], +parts[1] - 1, +parts[2]), mon = new Date(dt); mon.setDate(dt.getDate() - ((dt.getDay() + 6) % 7));
-      var wk = mon.toDateString();
-      if (wk !== lastWeek) { html += '<h2>Week of ' + esc(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][mon.getMonth()] + ' ' + mon.getDate()) + '</h2><div class="menu">'; lastWeek = wk; }
-      html += '<button class="item" data-day="' + i + '"><div class="t"><span>' + esc(d.label) + '</span><span class="pill ' + esc(d.mode) + '">' + esc(d.mode === 'event' ? 'Event' : MODE_NAME[d.mode] || d.mode) + '</span></div>' +
-        '<div class="d">' + esc((d.mode === 'closed' ? '' : t12(d.start) + ' to ' + t12(d.end) + ' · ') + (d.mode === 'event' ? (d.venue || 'Event') : offerText(d.mode, d.offer)) + (d.zone ? ' · ' + d.zone + ' only' : '') + (d.custom && d.mode !== 'event' ? ' · set by you' : '') + (d.booked ? ' · ' + d.booked + ' booked' : '')) + '</div></button>';
-      var next = p.days[i + 1], nparts = next ? next.date.split('-') : null, ndt = next ? new Date(+nparts[0], +nparts[1] - 1, +nparts[2]) : null;
-      if (!next || ndt.getDay() === 1) html += '</div>';
+    var html = '<h1>Day planner</h1>' + (msg ? '<p class="ok">' + esc(msg) + '</p>' : '') +
+      '<p class="muted">' + (p.autoWeek ? 'Every day follows your standard week unless you change it here. Tap a day to change it.' : 'Customers can only book a day you have opened. Open a whole week with one tap, or tap a day to set it yourself. Event days are always open.') + '</p>' +
+      '<div class="row" style="margin-top:6px"><button class="btn ghost" id="plWeek">My standard week</button></div>';
+    var weeks = [], byWeek = {};
+    p.days.forEach(function (d, i) { d._i = i; var k = d.monday || d.date; if (!byWeek[k]) { byWeek[k] = []; weeks.push(k); } byWeek[k].push(d); });
+    weeks.forEach(function (k) {
+      var list = byWeek[k], parts = k.split('-');
+      var canOpen = !p.autoWeek && list.some(function (d) { return !d.custom && d.standard && d.standard.mode !== 'closed'; });
+      var canClose = !p.autoWeek && list.some(function (d) { return d.custom && d.mode !== 'event'; });
+      html += '<h2>Week of ' + esc(MONTHS[+parts[1] - 1] + ' ' + (+parts[2])) + '</h2>' +
+        (canOpen || canClose ? '<div class="acts" style="margin:0 0 10px">' + (canOpen ? '<button class="sbtn go" data-open="' + esc(k) + '">Use my standard week</button>' : '') + (canClose ? '<button class="sbtn" data-close="' + esc(k) + '">Close this week</button>' : '') + '</div>' : '') + '<div class="menu">';
+      list.forEach(function (d) {
+        var unopened = !p.autoWeek && !d.custom;
+        html += '<button class="item" data-day="' + d._i + '"><div class="t"><span>' + esc(d.label) + '</span><span class="pill ' + esc(d.mode) + '">' + esc(d.mode === 'event' ? 'Event' : MODE_NAME[d.mode] || d.mode) + '</span></div>' +
+          '<div class="d">' + esc(unopened ? 'Not opened' : ((d.mode === 'event' ? t12(d.start) + ' to ' + t12(d.end) + ' · ' + (d.venue || 'Event') : dayLine(d)) + (d.zone ? ' · ' + d.zone + ' only' : '') + (p.autoWeek && d.custom && d.mode !== 'event' ? ' · set by you' : ''))) + (d.booked ? ' · ' + d.booked + ' booked' : '') + '</div></button>';
+      });
+      html += '</div>';
     });
+    html += '<p class="muted small" style="margin-top:18px">The planner always shows the next ' + esc(p.weeksAhead || 6) + ' weeks. A new day appears at the bottom every morning.</p>';
     show(html + backRow()); wireBack();
     document.getElementById('plWeek').addEventListener('click', weekScreen);
     Array.prototype.forEach.call(document.querySelectorAll('[data-day]'), function (el2) { el2.addEventListener('click', function () { dayScreen(p.days[+el2.getAttribute('data-day')]); }); });
-  }).catch(function () { needEngine(null, 'Day planner'); });
+    function weekOp(op, k, btn, done) {
+      btn.disabled = true; btn.textContent = 'Working';
+      post({ op: op, monday: k }).then(function (r) { if (!r.ok) return plannerScreen(r.error || 'Could not do that.'); plannerScreen(done(r), r); }).catch(function () { plannerScreen('Could not reach the engine.'); });
+    }
+    Array.prototype.forEach.call(document.querySelectorAll('[data-open]'), function (el2) { el2.addEventListener('click', function () {
+      var k = el2.getAttribute('data-open'), pp = k.split('-');
+      weekOp('applyweek', k, el2, function (r) { return r.applied ? 'Opened ' + r.applied + (r.applied === 1 ? ' day' : ' days') + ' in the week of ' + MONTHS[+pp[1] - 1] + ' ' + (+pp[2]) + ' from your standard week.' : 'Nothing to open that week: every working day is already set.'; });
+    }); });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-close]'), function (el2) { el2.addEventListener('click', function () {
+      var k = el2.getAttribute('data-close'), pp = k.split('-');
+      weekOp('clearweek', k, el2, function (r) { return 'Closed the week of ' + MONTHS[+pp[1] - 1] + ' ' + (+pp[2]) + '. Appointments already booked that week are not cancelled.'; });
+    }); });
+  }
+  if (fresh && fresh.ok) return draw(fresh);
+  show('<p class="muted">Loading the planner</p>');
+  post({ op: 'plans' }).then(function (p) { if (!p.ok) return needEngine(p, 'Day planner'); draw(p); }).catch(function () { needEngine(null, 'Day planner'); });
+}
+/* the editor shared by one date and by one weekday of the standard week: a day is a list of sections */
+var EDS = [];
+function secState(x) {
+  var o = x.offer && x.offer.length ? x.offer : (x.mode === 'route' ? ['visits', 'calls'] : ['calls']);
+  return { start: pad5(x.start) || pad5(PL.earliest), end: pad5(x.end) || pad5(PL.doneBy), mode: x.mode === 'desk' ? 'desk' : 'route', visits: o.indexOf('visits') >= 0, calls: o.indexOf('calls') >= 0, zoom: o.indexOf('zoom') >= 0 };
 }
 function planEditor(d, isWeekday) {
-  var o = d.offer && d.offer.length ? d.offer : ['visits', 'calls'];
-  return '<label for="peMode">What kind of day</label><select id="peMode"><option value="route">Field day: I drive to customers</option><option value="desk">Home office: phone and Zoom</option><option value="closed">Closed: nothing can be booked</option></select>' +
-    '<div id="peOpen"><div class="two"><div><label for="peStart">From</label><input id="peStart" type="time" step="900" value="' + esc(pad5(d.start) || pad5(PL.earliest)) + '"></div><div><label for="peEnd">Until</label><input id="peEnd" type="time" step="900" value="' + esc(pad5(d.end) || pad5(PL.doneBy)) + '"></div></div>' +
-    '<label style="margin-top:16px">What customers can book</label>' +
-    '<label class="check" id="peVisitsRow"><input type="checkbox" id="peVisits"' + (o.indexOf('visits') >= 0 ? ' checked' : '') + '> Home and office visits</label>' +
-    '<label class="check" id="peZoomRow"><input type="checkbox" id="peZoom"' + (d.offer && d.offer.indexOf('zoom') >= 0 ? ' checked' : '') + '> Zoom meetings</label>' +
-    '<label class="check"><input type="checkbox" id="peCalls"' + (o.indexOf('calls') >= 0 ? ' checked' : '') + '> <span id="peCallsText">Phone calls</span></label>' +
-    (PL.zoomOn ? '' : '<p class="muted small" id="peZoomOff" style="margin-top:8px">Zoom is switched off as an appointment type right now, so ticking it has no effect yet.</p>') +
-    (isWeekday ? '' : '<div id="peZoneRow"><label for="peZone">Only for customers in one area (optional)</label><select id="peZone"><option value="">Any area</option>' + PL.zones.map(function (z) { return '<option' + (d.zone === z ? ' selected' : '') + '>' + esc(z) + '</option>'; }).join('') + '</select></div>') +
+  var secs = d.sections && d.sections.length ? d.sections : [{ start: PL.earliest, end: PL.doneBy, mode: 'route', offer: [] }];
+  EDS = secs.map(secState);
+  return '<label for="peMode">This day is</label><select id="peMode"><option value="open">Open: customers can book the sections below</option><option value="closed">Closed: nothing can be booked</option></select>' +
+    '<div id="peOpen"><div id="peSecs"></div>' +
+    '<div class="acts" style="margin-top:10px"><button class="sbtn go" id="peAddSec" type="button">Add another section</button></div>' +
+    (PL.zoomOn ? '' : '<p class="muted small" style="margin-top:8px">Zoom is switched off as an appointment type right now, so ticking it has no effect yet.</p>') +
+    (isWeekday ? '' : '<div id="peZoneRow"><label for="peZone">Field visits only for customers in one area (optional)</label><select id="peZone"><option value="">Any area</option>' + PL.zones.map(function (z) { return '<option' + (d.zone === z ? ' selected' : '') + '>' + esc(z) + '</option>'; }).join('') + '</select></div>') +
     '</div>' + (isWeekday ? '' : '<label for="peNote">Note to yourself (optional)</label><input id="peNote" value="' + esc(d.note || '') + '">');
 }
+function syncSections() {
+  EDS.forEach(function (x, i) {
+    var g = function (id) { return document.getElementById(id + i); };
+    if (!g('peS')) return;
+    x.start = g('peS').value; x.end = g('peE').value; x.mode = g('peK').value;
+    if (g('peV')) x.visits = g('peV').checked; if (g('peZ')) x.zoom = g('peZ').checked; x.calls = g('peC').checked;
+  });
+}
+function drawSections() {
+  var box = document.getElementById('peSecs'); if (!box) return;
+  box.innerHTML = EDS.map(function (x, i) {
+    return '<div class="sec"><div class="sech"><span>' + (EDS.length > 1 ? 'Section ' + (i + 1) : 'Hours and what can be booked') + '</span>' + (EDS.length > 1 ? '<button class="sbtn warn" type="button" data-sx="' + i + '">Remove</button>' : '') + '</div>' +
+      '<div class="two"><div><label for="peS' + i + '">From</label><input id="peS' + i + '" type="time" step="900" value="' + esc(x.start) + '"></div><div><label for="peE' + i + '">Until</label><input id="peE' + i + '" type="time" step="900" value="' + esc(x.end) + '"></div></div>' +
+      '<label for="peK' + i + '">Where I am</label><select id="peK' + i + '" data-sk="' + i + '"><option value="route"' + (x.mode === 'route' ? ' selected' : '') + '>In the field: I drive to customers</option><option value="desk"' + (x.mode === 'desk' ? ' selected' : '') + '>Home office: phone and Zoom</option></select>' +
+      '<label style="margin-top:12px">Customers can book</label>' +
+      (x.mode === 'route' ? '<label class="check"><input type="checkbox" id="peV' + i + '"' + (x.visits ? ' checked' : '') + '> Home and office visits</label>' : '<label class="check"><input type="checkbox" id="peZ' + i + '"' + (x.zoom ? ' checked' : '') + '> Zoom meetings</label>') +
+      '<label class="check"><input type="checkbox" id="peC' + i + '"' + (x.calls ? ' checked' : '') + '> ' + (x.mode === 'route' ? 'Phone calls, taken from the car between visits' : 'Phone calls') + '</label></div>';
+  }).join('');
+  Array.prototype.forEach.call(box.querySelectorAll('[data-sk]'), function (sel) { sel.addEventListener('change', function () {
+    syncSections(); var x = EDS[+sel.getAttribute('data-sk')];
+    if (x.mode === 'route' && !x.visits && !x.calls) x.visits = true;
+    if (x.mode === 'desk' && !x.zoom && !x.calls) x.calls = true;
+    drawSections(); zoneVis();
+  }); });
+  Array.prototype.forEach.call(box.querySelectorAll('[data-sx]'), function (b) { b.addEventListener('click', function () { syncSections(); EDS.splice(+b.getAttribute('data-sx'), 1); drawSections(); zoneVis(); }); });
+}
+function zoneVis() { var z = document.getElementById('peZoneRow'); if (z) z.hidden = !EDS.some(function (x) { return x.mode === 'route'; }); }
 function wireEditor(d) {
-  var m = document.getElementById('peMode'); m.value = d.mode === 'desk' || d.mode === 'closed' ? d.mode : 'route';
-  function sync() {
-    document.getElementById('peOpen').hidden = m.value === 'closed';
-    document.getElementById('peVisitsRow').style.display = m.value === 'route' ? '' : 'none';
-    document.getElementById('peZoomRow').style.display = m.value === 'desk' ? '' : 'none';
-    var z = document.getElementById('peZoneRow'); if (z) z.hidden = m.value !== 'route';
-    var zo = document.getElementById('peZoomOff'); if (zo) zo.hidden = m.value !== 'desk';
-    document.getElementById('peCallsText').textContent = m.value === 'route' ? 'Phone calls, taken from the car between visits' : 'Phone calls';
-  }
+  var m = document.getElementById('peMode'); m.value = d.mode === 'closed' ? 'closed' : 'open';
+  function sync() { document.getElementById('peOpen').hidden = m.value === 'closed'; }
   m.addEventListener('change', sync); sync();
+  drawSections(); zoneVis();
+  document.getElementById('peAddSec').addEventListener('click', function () {
+    syncSections();
+    var last = EDS[EDS.length - 1], lm = last && /^(\d\d):(\d\d)$/.exec(last.end || ''), h = lm ? Math.min(+lm[1], 21) : 13, mm = lm ? lm[2] : '00';
+    var z2 = function (n) { return (n < 10 ? '0' : '') + n; };
+    EDS.push({ start: z2(h) + ':' + mm, end: z2(Math.min(h + 2, 23)) + ':' + mm, mode: last && last.mode === 'route' ? 'desk' : 'route', visits: true, calls: true, zoom: false });
+    drawSections(); zoneVis();
+    var el2 = document.getElementById('peS' + (EDS.length - 1)); if (el2 && el2.scrollIntoView) el2.scrollIntoView({ block: 'center' });
+  });
 }
 function readEditor() {
-  var mode = document.getElementById('peMode').value, offer = [];
-  if (mode === 'route' && document.getElementById('peVisits').checked) offer.push('visits');
-  if (mode === 'desk' && document.getElementById('peZoom').checked) offer.push('zoom');
-  if (document.getElementById('peCalls').checked) offer.push('calls');
-  var out = { mode: mode, start: document.getElementById('peStart').value, end: document.getElementById('peEnd').value, offer: offer };
-  var z = document.getElementById('peZone'); if (z) out.zone = z.value;
+  syncSections();
+  var mode = document.getElementById('peMode').value;
+  var secs = EDS.map(function (x) { var offer = []; if (x.mode === 'route' && x.visits) offer.push('visits'); if (x.mode === 'desk' && x.zoom) offer.push('zoom'); if (x.calls) offer.push('calls'); return { start: x.start, end: x.end, mode: x.mode, offer: offer }; })
+    .sort(function (a, b) { return a.start < b.start ? -1 : a.start > b.start ? 1 : 0; });
+  var out = { mode: mode, sections: mode === 'closed' ? [] : secs };
+  var z = document.getElementById('peZone'); if (z) out.zone = secs.some(function (x) { return x.mode === 'route'; }) ? z.value : '';
   var n = document.getElementById('peNote'); if (n) out.note = n.value.trim();
-  if (mode !== 'closed' && !offer.length) out.error = 'Tick at least one thing customers can book, or choose Closed.';
-  if (mode !== 'closed' && (!out.start || !out.end || out.end <= out.start)) out.error = 'The Until time should be after the From time.';
+  if (mode !== 'closed') secs.forEach(function (x, i) {
+    if (!x.start || !x.end || x.end <= x.start) out.error = 'Each section needs an Until time after its From time.';
+    else if (!x.offer.length) out.error = 'Each section needs at least one thing customers can book. Tick one, or remove the section.';
+    else if (i && x.start < secs[i - 1].end) out.error = 'Two of your sections overlap. Change the times so they do not.';
+  });
   return out;
 }
 function dayScreen(d) {
   if (d.mode === 'event') {
-    show('<h1>' + esc(d.label) + '</h1><p><span class="pill event">Event</span> ' + esc(d.venue || '') + ', ' + esc(t12(d.start)) + ' to ' + esc(t12(d.end)) + '.</p><p class="muted">Event days carry extra details (venue, slot length, breaks), so they are set up on the Day Plans tab of the Booking Center sheet, or just ask Claude to add or change one.</p><div class="row"><button class="btn quiet" id="dyBack">Back to the planner</button></div>');
+    show('<h1>' + esc(d.label) + '</h1><p><span class="pill event">Event</span> ' + esc(d.venue || '') + ', ' + esc(t12(d.start) + ' to ' + t12(d.end)) + '.</p><p class="muted">Event days carry extra details (venue, slot length, breaks), so they are set up on the Day Plans tab of the Booking Center sheet, or just ask Claude to add or change one.</p><div class="row"><button class="btn quiet" id="dyBack">Back to the planner</button></div>');
     document.getElementById('dyBack').addEventListener('click', function () { plannerScreen(); });
     return;
   }
-  show('<h1>' + esc(d.label) + '</h1><p class="muted">' + (d.custom ? 'You set this day by hand.' : 'Following your normal ' + esc(d.label.split(' ')[0]) + '.') + (d.booked ? ' ' + d.booked + ' already booked; changing the day does not move or cancel them.' : '') + '</p>' + planEditor(d, false) +
-    '<div class="row"><button class="btn" id="dySave">Save this day</button>' + (d.custom ? '<button class="btn ghost" id="dyReset">Back to my normal week</button>' : '') + '<button class="btn quiet" id="dyBack">Cancel</button></div><p class="err" id="dyErr" hidden></p>');
-  wireEditor(d);
+  var unopened = !PL.autoWeek && !d.custom;
+  /* an unopened day starts from what your standard week says for that weekday */
+  var seed = unopened && d.standard && d.standard.sections && d.standard.sections.length ? { mode: 'open', sections: d.standard.sections, zone: '', note: '' } : unopened ? { mode: 'open', sections: [{ start: PL.earliest, end: PL.doneBy, mode: 'route', offer: [] }], zone: '', note: '' } : d;
+  show('<h1>' + esc(d.label) + '</h1><p class="muted">' + (unopened ? 'Not opened: customers cannot book this day. Set it below and save to open it.' : d.custom ? (PL.autoWeek ? 'You set this day by hand.' : 'Open. Customers can book it as set below.') : 'Following your standard ' + esc(d.label.split(' ')[0]) + '.') + (d.booked ? ' ' + d.booked + ' already booked; changing the day does not move or cancel them.' : '') + '</p>' + planEditor(seed, false) +
+    '<div class="row"><button class="btn" id="dySave">' + (unopened ? 'Open this day' : 'Save this day') + '</button>' + (d.custom ? '<button class="btn ghost" id="dyReset">' + (PL.autoWeek ? 'Back to my standard week' : 'Close this day') + '</button>' : '') + '<button class="btn quiet" id="dyBack">Cancel</button></div><p class="err" id="dyErr" hidden></p>');
+  wireEditor(seed);
   document.getElementById('dyBack').addEventListener('click', function () { plannerScreen(); });
   function send(body, done) {
     body.op = 'saveplan'; body.date = d.date;
-    post(body).then(function (r) { if (r.ok) return plannerScreen(done); var e2 = document.getElementById('dyErr'); e2.textContent = r.error || 'Could not save.'; e2.hidden = false; })
+    post(body).then(function (r) { if (r.ok) return plannerScreen(done, r); var e2 = document.getElementById('dyErr'); e2.textContent = r.error || 'Could not save.'; e2.hidden = false; })
       .catch(function () { var e3 = document.getElementById('dyErr'); e3.textContent = 'Could not reach the engine.'; e3.hidden = false; });
   }
   document.getElementById('dySave').addEventListener('click', function () {
     var v = readEditor(); if (v.error) { var e2 = document.getElementById('dyErr'); e2.textContent = v.error; e2.hidden = false; return; }
-    send(v, 'Saved ' + d.label + '.');
+    send(v, (v.mode === 'closed' ? 'Closed ' : 'Saved ') + d.label + '.');
   });
-  var rs = document.getElementById('dyReset'); if (rs) rs.addEventListener('click', function () { send({ mode: 'default' }, d.label + ' is back to your normal week.'); });
+  var rs = document.getElementById('dyReset'); if (rs) rs.addEventListener('click', function () { send({ mode: 'default' }, PL.autoWeek ? d.label + ' is back to your standard week.' : d.label + ' is closed again.'); });
 }
 function weekScreen(msg) {
-  var html = '<h1>My normal week</h1>' + (typeof msg === 'string' ? '<p class="ok">' + esc(msg) + '</p>' : '') + '<p class="muted">What each weekday offers unless you change a particular date in the planner.</p><div class="menu">';
+  var html = '<h1>My standard week</h1>' + (typeof msg === 'string' ? '<p class="ok">' + esc(msg) + '</p>' : '') + '<p class="muted">' + (PL.autoWeek ? 'What each weekday offers unless you change a particular date in the planner.' : 'Your usual pattern. Nothing here is open to customers until you tap "Use my standard week" on a week in the planner.') + '</p><div class="menu">';
   [1, 2, 3, 4, 5, 6, 0].forEach(function (i) {
     var w = PL.week[i];
-    html += '<button class="item" data-wd="' + i + '"><div class="t"><span>' + esc(w.name) + '</span><span class="pill ' + esc(w.mode) + '">' + esc(MODE_NAME[w.mode] || w.mode) + '</span></div><div class="d">' + esc((w.mode === 'closed' ? '' : t12(w.start || PL.earliest) + ' to ' + t12(w.end || PL.doneBy) + ' · ') + offerText(w.mode, w.offer)) + '</div></button>';
+    html += '<button class="item" data-wd="' + i + '"><div class="t"><span>' + esc(w.name) + '</span><span class="pill ' + esc(w.mode) + '">' + esc(MODE_NAME[w.mode] || w.mode) + '</span></div><div class="d">' + esc(dayLine(w)) + '</div></button>';
   });
   show(html + '</div><div class="row"><button class="btn quiet" id="wkBack">Back to the planner</button></div>');
   document.getElementById('wkBack').addEventListener('click', function () { plannerScreen(); });
   Array.prototype.forEach.call(document.querySelectorAll('[data-wd]'), function (el2) { el2.addEventListener('click', function () { weekdayScreen(PL.week[+el2.getAttribute('data-wd')]); }); });
 }
 function weekdayScreen(w) {
-  show('<h1>Every ' + esc(w.name) + '</h1>' + planEditor(w, true) + '<div class="row"><button class="btn" id="wdSave">Save</button><button class="btn quiet" id="wdBack">Cancel</button></div><p class="err" id="wdErr" hidden></p>');
+  show('<h1>Every ' + esc(w.name) + '</h1><p class="muted">Changing the pattern does not change weeks you have already opened.</p>' + planEditor(w, true) + '<div class="row"><button class="btn" id="wdSave">Save</button><button class="btn quiet" id="wdBack">Cancel</button></div><p class="err" id="wdErr" hidden></p>');
   wireEditor(w);
   document.getElementById('wdBack').addEventListener('click', function () { weekScreen(); });
   document.getElementById('wdSave').addEventListener('click', function () {
