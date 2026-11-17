@@ -512,12 +512,13 @@ function plannerScreen(msg, fresh) {
   post({ op: 'plans' }).then(function (p) { if (!p.ok) return needEngine(p, 'Day planner'); draw(p); }).catch(function () { needEngine(null, 'Day planner'); });
 }
 /* the editor shared by one date and by one weekday of the standard week: a day is a list of sections */
-var EDS = [];
+var EDS = [], EDD = null, STASH = null;
 function secState(x) {
   var o = x.offer && x.offer.length ? x.offer : (x.mode === 'route' ? ['visits', 'calls'] : ['calls']);
   return { start: pad5(x.start) || pad5(PL.earliest), end: pad5(x.end) || pad5(PL.doneBy), mode: x.mode === 'desk' ? 'desk' : 'route', visits: o.indexOf('visits') >= 0, calls: o.indexOf('calls') >= 0, zoom: o.indexOf('zoom') >= 0 };
 }
 function planEditor(d, isWeekday) {
+  EDD = null;
   var secs = d.sections && d.sections.length ? d.sections : [{ start: PL.earliest, end: PL.doneBy, mode: 'route', offer: [] }];
   EDS = secs.map(secState);
   return '<label for="peMode">This day is</label><select id="peMode"><option value="open">Open: customers can book the sections below</option><option value="closed">Closed: nothing can be booked</option></select>' +
@@ -540,13 +541,22 @@ function drawSections() {
   box.innerHTML = EDS.map(function (x, i) {
     return '<div class="sec"><div class="sech"><span>' + (EDS.length > 1 ? 'Section ' + (i + 1) : 'Hours and what can be booked') + '</span>' + (EDS.length > 1 ? '<button class="sbtn warn" type="button" data-sx="' + i + '">Remove</button>' : '') + '</div>' +
       '<div class="two"><div><label for="peS' + i + '">From</label><input id="peS' + i + '" type="time" step="900" value="' + esc(x.start) + '"></div><div><label for="peE' + i + '">Until</label><input id="peE' + i + '" type="time" step="900" value="' + esc(x.end) + '"></div></div>' +
-      '<label for="peK' + i + '">Where I am</label><select id="peK' + i + '" data-sk="' + i + '"><option value="route"' + (x.mode === 'route' ? ' selected' : '') + '>In the field: I drive to customers</option><option value="desk"' + (x.mode === 'desk' ? ' selected' : '') + '>Home office: phone and Zoom</option></select>' +
+      '<label for="peK' + i + '">Where I am</label><select id="peK' + i + '" data-sk="' + i + '"><option value="route"' + (x.mode === 'route' ? ' selected' : '') + '>In the field: I drive to customers</option><option value="desk"' + (x.mode === 'desk' ? ' selected' : '') + '>Home office: phone and Zoom</option>' + (EDD ? '<option value="event">Service Event: customers come to me at a venue</option>' : '') + '</select>' +
       '<label style="margin-top:12px">Customers can book</label>' +
       (x.mode === 'route' ? '<label class="check"><input type="checkbox" id="peV' + i + '"' + (x.visits ? ' checked' : '') + '> Home and office visits</label>' : '<label class="check"><input type="checkbox" id="peZ' + i + '"' + (x.zoom ? ' checked' : '') + '> Zoom meetings</label>') +
       '<label class="check"><input type="checkbox" id="peC' + i + '"' + (x.calls ? ' checked' : '') + '> ' + (x.mode === 'route' ? 'Phone calls, taken from the car between visits' : 'Phone calls') + '</label></div>';
   }).join('');
   Array.prototype.forEach.call(box.querySelectorAll('[data-sk]'), function (sel) { sel.addEventListener('change', function () {
-    syncSections(); var x = EDS[+sel.getAttribute('data-sk')];
+    syncSections(); var si = +sel.getAttribute('data-sk'), x = EDS[si];
+    if (x.mode === 'event') {
+      /* a Service Event takes the whole day: open the event form for this date, keeping the hours typed so far */
+      x.mode = 'route';
+      if (!EDD) return drawSections();
+      if (EDD.mode === 'event') return eventScreen(EDD);
+      var nt = document.getElementById('peNote');
+      STASH = { date: EDD.date, secs: EDS.slice(), i: si };
+      return eventScreen(null, { base: EDD, date: EDD.date, start: x.start, end: x.end, note: nt ? nt.value.trim() : '' });
+    }
     if (x.mode === 'route' && !x.visits && !x.calls) x.visits = true;
     if (x.mode === 'desk' && !x.zoom && !x.calls) x.calls = true;
     drawSections(); zoneVis();
@@ -583,19 +593,30 @@ function readEditor() {
   });
   return out;
 }
-function dayScreen(d) {
-  if (d.mode === 'event') return eventScreen(d);
-  var unopened = !PL.autoWeek && !d.custom;
+function dayScreen(d, opts) {
+  opts = opts || {};
+  /* conv: an event day being turned into a regular day (the engine needs force for that) */
+  var conv = d.mode === 'event' && !!opts.kind;
+  if (d.mode === 'event' && !conv) return eventScreen(d);
+  var unopened = !conv && !PL.autoWeek && !d.custom;
   /* an unopened day starts from what your standard week says for that weekday */
   var seed = unopened && d.standard && d.standard.sections && d.standard.sections.length ? { mode: 'open', sections: d.standard.sections, zone: '', note: '' } : unopened ? { mode: 'open', sections: [{ start: PL.earliest, end: PL.doneBy, mode: 'route', offer: [] }], zone: '', note: '' } : d;
-  show('<h1>' + esc(d.label) + '</h1><p class="muted">' + (unopened ? 'Not opened: customers cannot book this day. Set it below and save to open it.' : d.custom ? (PL.autoWeek ? 'You set this day by hand.' : 'Open. Customers can book it as set below.') : 'Following your standard ' + esc(d.label.split(' ')[0]) + '.') + (d.booked ? ' ' + d.booked + ' already booked; changing the day does not move or cancel them.' : '') + '</p>' + planEditor(seed, false) +
-    '<div class="row"><button class="btn" id="dySave">' + (unopened ? 'Open this day' : 'Save this day') + '</button>' + (d.custom ? '<button class="btn ghost" id="dyReset">' + (PL.autoWeek ? 'Back to my standard week' : 'Close this day') + '</button>' : '') + '<button class="btn quiet" id="dyBack">Cancel</button></div><p class="err" id="dyErr" hidden></p>' +
-    '<p class="muted small" style="margin-top:18px">Running an event at a venue this day instead? <button class="sbtn" id="dyEvent" type="button">Make it an event day</button></p>');
+  if (conv) seed = { mode: 'open', sections: [{ start: opts.start || d.start || PL.earliest, end: opts.end || d.end || PL.doneBy, mode: opts.kind, offer: [] }], zone: '', note: d.note || '' };
+  if (opts.closed) seed = { mode: 'closed', sections: seed.sections, zone: seed.zone, note: seed.note };
+  else if (opts.kind && !conv && seed.mode === 'closed') seed = { mode: 'open', sections: seed.sections, zone: seed.zone, note: seed.note };
+  show('<h1>' + esc(d.label) + '</h1><p class="muted">' + (conv ? 'This is a Service Event day right now. Saving below turns it into a regular day and removes the event.' : unopened ? 'Not opened: customers cannot book this day. Set it below and save to open it.' : d.custom ? (PL.autoWeek ? 'You set this day by hand.' : 'Open. Customers can book it as set below.') : 'Following your standard ' + esc(d.label.split(' ')[0]) + '.') + (d.booked ? ' ' + d.booked + ' already booked; changing the day does not move or cancel them.' : '') + '</p>' + planEditor(seed, false) +
+    '<div class="row"><button class="btn" id="dySave">' + (conv ? 'Save as a regular day' : unopened ? 'Open this day' : 'Save this day') + '</button>' + (d.custom && !conv ? '<button class="btn ghost" id="dyReset">' + (PL.autoWeek ? 'Back to my standard week' : 'Close this day') + '</button>' : '') + '<button class="btn quiet" id="dyBack">Cancel</button></div><p class="err" id="dyErr" hidden></p>' +
+    '<p class="muted small" style="margin-top:18px">Running a Service Event at a venue this day? Choose Service Event under "Where I am".</p>');
+  /* back from the event form without saving: put the sections back as they were, with the chosen place */
+  if (!conv && opts.kind) {
+    if (STASH && STASH.date === d.date && STASH.secs[STASH.i]) { EDS = STASH.secs; var sx = EDS[STASH.i]; sx.mode = opts.kind; if (opts.start) sx.start = opts.start; if (opts.end) sx.end = opts.end; if (sx.mode === 'route' && !sx.visits && !sx.calls) sx.visits = true; if (sx.mode === 'desk' && !sx.zoom && !sx.calls) sx.calls = true; }
+    else EDS = [secState({ start: opts.start, end: opts.end, mode: opts.kind, offer: [] })];
+  }
+  STASH = null; EDD = d;
   wireEditor(seed);
-  document.getElementById('dyEvent').addEventListener('click', function () { eventScreen(null, { date: d.date }); });
   document.getElementById('dyBack').addEventListener('click', function () { plannerScreen(); });
   function send(body, done) {
-    body.op = 'saveplan'; body.date = d.date;
+    body.op = 'saveplan'; body.date = d.date; if (conv) body.force = true;
     post(body).then(function (r) { if (r.ok) return plannerScreen(done, r); var e2 = document.getElementById('dyErr'); e2.textContent = r.error || 'Could not save.'; e2.hidden = false; })
       .catch(function () { var e3 = document.getElementById('dyErr'); e3.textContent = 'Could not reach the engine.'; e3.hidden = false; });
   }
@@ -630,10 +651,16 @@ function eventScreen(d, seed) {
   seed = seed || {};
   var isNew = !(d && d.mode === 'event'), ev = (d && d.event) || seed.event || {};
   var date = seed.date || (d && d.date) || '';
+  /* base: the planner day this form belongs to. With one, the day is fixed and the form opens with the same
+     "This day is" and "Where I am" questions as any other day, so an event can be made, changed or undone from there. */
+  var base = seed.base || (!isNew ? d : null);
   EVB = (ev.blackouts || []).map(function (b) { return { start: pad5(b.start), end: pad5(b.end) }; });
-  show('<h1>' + (isNew ? 'Add an event' : esc(d.label)) + '</h1>' +
+  show('<h1>' + (base ? esc(base.label) : 'Add an event') + '</h1>' +
     '<p class="muted">' + (isNew ? 'An event is a day at a venue with back-to-back appointment slots. Customers near it see it under Sharpening, and you get a link that goes straight to it.' : 'Event day.' + (d.booked ? ' ' + d.booked + ' already booked. Their times stay exactly as they are, and no new slot will overlap them.' : '')) + '</p>' +
-    (isNew ? '<label for="evDate">Day</label><input id="evDate" type="date" value="' + esc(date) + '">' : '') +
+    (base ? '<label for="evMode">This day is</label><select id="evMode"><option value="open">Open: customers can book the event below</option><option value="closed">Closed: nothing can be booked</option></select>' +
+      '<label for="evKind">Where I am</label><select id="evKind"><option value="event">Service Event: customers come to me at a venue</option><option value="route">In the field: I drive to customers</option><option value="desk">Home office: phone and Zoom</option></select>' +
+      (isNew ? '<p class="muted small" style="margin-top:8px">A Service Event takes the whole day. It replaces any other sections on this day.</p>' : '')
+      : '<label for="evDate">Day</label><input id="evDate" type="date" value="' + esc(date) + '">') +
     '<label for="evVenue">Venue name</label><input id="evVenue" value="' + esc(ev.venue || '') + '" placeholder="Stoneridge Mall">' +
     '<label for="evAddr">Address (street, city, zip)</label><input id="evAddr" value="' + esc(ev.address || '') + '" placeholder="1 Stoneridge Mall Rd, Pleasanton, CA 94588">' +
     '<label for="evFind">Where to find you there (optional)</label><input id="evFind" value="' + esc(ev.findMe || '') + '" placeholder="In front of the MAC store">' +
@@ -653,7 +680,7 @@ function eventScreen(d, seed) {
   function read() {
     syncBlackouts();
     var v = function (id) { var e2 = document.getElementById(id); return e2 ? e2.value.trim() : ''; };
-    return { op: 'saveevent', date: isNew ? v('evDate') : d.date, venue: v('evVenue'), address: v('evAddr'), findMe: v('evFind'), start: v('evStart'), end: v('evEnd'), slotMin: v('evSlot'),
+    return { op: 'saveevent', date: base ? base.date : v('evDate'), venue: v('evVenue'), address: v('evAddr'), findMe: v('evFind'), start: v('evStart'), end: v('evEnd'), slotMin: v('evSlot'),
       breakStart: v('evBrk'), breakMin: v('evBrk') ? (v('evBrkMin') || '0') : '0', blackouts: EVB.map(function (b) { return { start: b.start, end: b.end }; }), note: v('evNote'), eventId: v('evId') };
   }
   var errEl = document.getElementById('evErr'); function err(m) { errEl.textContent = m; errEl.hidden = false; }
@@ -668,6 +695,8 @@ function eventScreen(d, seed) {
       PL = r; eventSavedScreen(r, b);
     }).catch(function () { btn.disabled = false; btn.textContent = isNew ? 'Add this event day' : 'Save event day'; err('Could not reach the engine.'); });
   });
+  var evK = document.getElementById('evKind'); if (evK) evK.addEventListener('change', function () { if (evK.value === 'event') return; var b = read(); dayScreen(base, { kind: evK.value, start: b.start, end: b.end }); });
+  var evM = document.getElementById('evMode'); if (evM) evM.addEventListener('change', function () { if (evM.value !== 'closed') return; if (isNew) dayScreen(base, { closed: true }); else removeEventScreen(d); });
   var more = document.getElementById('evMore'); if (more) more.addEventListener('click', function () { anotherDay(read()); });
   var rm = document.getElementById('evRemove'); if (rm) rm.addEventListener('click', function () { removeEventScreen(d); });
 }
